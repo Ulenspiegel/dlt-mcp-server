@@ -21,21 +21,20 @@
 #include <filesystem>
 
 Dashboard::Dashboard(QSettings* settings, DltMcpServer* server, QWidget* parent)
-    : QWidget(parent),
-      settings_(settings),
-      server_(server),
-      statusLabel_(new QLabel(this)),
-      contextWarningLabel_(new QLabel(this)),
+    : QWidget(parent), settings_(settings), server_(server), statusLabel_(new QLabel(this)),
+      fileCountLabel_(new QLabel(this)), contextWarningLabel_(new QLabel(this)),
       sseCopyBtn_(new QPushButton("Copy SSE URL", this)),
       httpCopyBtn_(new QPushButton("Copy Streamable HTTP URL", this)),
       settingsBtn_(new QPushButton("Settings...", this)) {
 
     port_ = settings_->value(PortKey, DefaultPort).toInt();
 
-    statusLabel_->setText(
-        QString("<b>MCP Server: localhost:%1</b><br>Running").arg(port_));
+    statusLabel_->setText(QString("<b>MCP Server: localhost:%1</b><br>Running").arg(port_));
     statusLabel_->setStyleSheet("color: #4caf50; font-size: 14px;");
     statusLabel_->setAlignment(Qt::AlignCenter);
+
+    fileCountLabel_->setStyleSheet("color: #9e9e9e; font-size: 12px;");
+    fileCountLabel_->setAlignment(Qt::AlignCenter);
 
     contextWarningLabel_->setVisible(false);
     contextWarningLabel_->setStyleSheet("color: #ff9800; font-size: 12px;");
@@ -51,6 +50,7 @@ Dashboard::Dashboard(QSettings* settings, DltMcpServer* server, QWidget* parent)
     auto* mainLayout = new QVBoxLayout(this);
     mainLayout->addStretch();
     mainLayout->addWidget(statusLabel_);
+    mainLayout->addWidget(fileCountLabel_);
     mainLayout->addWidget(contextWarningLabel_);
     mainLayout->addSpacing(16);
     mainLayout->addLayout(btnLayout);
@@ -74,8 +74,11 @@ Dashboard::Dashboard(QSettings* settings, DltMcpServer* server, QWidget* parent)
 
     connect(settingsBtn_, &QPushButton::clicked, this, &Dashboard::openSettings);
 
+    connect(server_, &DltMcpServer::fileCountChanged, this, &Dashboard::updateFileCount);
+
     QTimer::singleShot(500, this, &Dashboard::checkServerStatus);
     updateContextWarning();
+    updateFileCount(0);
 }
 
 void Dashboard::showEvent(QShowEvent* event) {
@@ -100,8 +103,8 @@ void Dashboard::updateContextWarning() {
     auto stat = std::filesystem::status(path, ec);
     if (ec || stat.type() != std::filesystem::file_type::regular) {
         auto file_name = std::filesystem::path(path).filename().string();
-        contextWarningLabel_->setText(
-            QString("<b>Warning:</b> Context file not found:<br>%1").arg(QString::fromStdString(file_name)));
+        contextWarningLabel_->setText(QString("<b>Warning:</b> Context file not found:<br>%1")
+                                          .arg(QString::fromStdString(file_name)));
         contextWarningLabel_->setVisible(true);
     } else {
         contextWarningLabel_->setVisible(false);
@@ -112,6 +115,14 @@ void Dashboard::checkServerStatus() {
     if (server_ && !server_->isServerRunning()) {
         statusLabel_->setText("<b>MCP Server failed to start</b><br>Port may be busy");
         statusLabel_->setStyleSheet("color: #f44336; font-size: 14px;");
+    }
+}
+
+void Dashboard::updateFileCount(int count) {
+    if (count == 0) {
+        fileCountLabel_->setText("No files loaded");
+    } else {
+        fileCountLabel_->setText(QString("%1 file(s) loaded").arg(count));
     }
 }
 

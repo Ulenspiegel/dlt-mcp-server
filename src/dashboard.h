@@ -20,24 +20,26 @@ class QSettings;
 class Dashboard : public QWidget {
     Q_OBJECT
 
-  public:
+public:
     explicit Dashboard(QSettings* settings, DltMcpServer* server, QWidget* parent = nullptr);
     ~Dashboard() override = default;
 
-  signals:
+signals:
     void openSettings();
 
-  protected:
+protected:
     void showEvent(QShowEvent* event) override;
     void timerEvent(QTimerEvent* ev) override;
 
-  private:
+private:
     void updateContextWarning();
     void checkServerStatus();
+    void updateFileCount(int count);
 
     QSettings* settings_ = nullptr;
     DltMcpServer* server_ = nullptr;
     QLabel* statusLabel_;
+    QLabel* fileCountLabel_;
     QLabel* contextWarningLabel_;
     QPushButton* sseCopyBtn_;
     QPushButton* httpCopyBtn_;

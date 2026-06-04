@@ -67,7 +67,14 @@ void DltMcpServer::initMsg(int /*index*/, QDltMsg& /*msg*/) {}
 
 void DltMcpServer::initMsgDecoded(int index, QDltMsg& msg) { onMessageReceived(index, msg); }
 
-void DltMcpServer::initFileFinish() { computeFileRanges(); }
+void DltMcpServer::initFileFinish() {
+    computeFileRanges();
+    if (dlt_file_ && dlt_file_->size() > 0) {
+        emit fileCountChanged(file_ranges_.size());
+    } else {
+        emit fileCountChanged(0);
+    }
+}
 
 void DltMcpServer::updateFileStart() {}
 
@@ -210,7 +217,9 @@ void DltMcpServer::computeFileRanges() {
     int start = 0;
     for (int i = 0; i < dlt_file_->getNumberOfFiles(); i++) {
         const int count = dlt_file_->getFileMsgNumber(i);
-        file_ranges_.push_back({dlt_file_->getFileName(i).toStdString(), count, start});
+        if (count > 0) {
+            file_ranges_.push_back({dlt_file_->getFileName(i).toStdString(), count, start});
+        }
         start += count;
     }
 }

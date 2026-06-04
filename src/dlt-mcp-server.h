@@ -43,6 +43,9 @@ class DltMcpServer : public QObject,
     Q_PLUGIN_METADATA(IID "org.genivi.DLT.DltMcpServerPlugin")
 #endif
 
+signals:
+    void fileCountChanged(int count);
+
 public:
     DltMcpServer();
     ~DltMcpServer() override;
