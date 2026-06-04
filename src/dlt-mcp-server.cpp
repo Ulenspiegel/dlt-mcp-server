@@ -14,8 +14,8 @@
 #include <cctype>
 #include <climits>
 #include <filesystem>
-#include <fstream>
 #include <fmt/format.h>
+#include <fstream>
 #include <sstream>
 
 DltMcpServer::DltMcpServer() {
@@ -67,7 +67,7 @@ void DltMcpServer::initMsg(int /*index*/, QDltMsg& /*msg*/) {}
 
 void DltMcpServer::initMsgDecoded(int index, QDltMsg& msg) { onMessageReceived(index, msg); }
 
-void DltMcpServer::initFileFinish() {}
+void DltMcpServer::initFileFinish() { computeFileRanges(); }
 
 void DltMcpServer::updateFileStart() {}
 
@@ -75,7 +75,7 @@ void DltMcpServer::updateMsg(int /*index*/, QDltMsg& /*msg*/) {}
 
 void DltMcpServer::updateMsgDecoded(int index, QDltMsg& msg) { onMessageReceived(index, msg); }
 
-void DltMcpServer::updateFileFinish() {}
+void DltMcpServer::updateFileFinish() { liveUpdateLastFileMessageCount(); }
 
 bool DltMcpServer::isMsg(QDltMsg& /*msg*/, int /*triggeredByUser*/) { return false; }
 
@@ -92,6 +92,7 @@ void DltMcpServer::reset() {
     index_.clear();
     distribution_.clear();
     log_levels_.clear();
+    file_ranges_.clear();
 }
 
 void DltMcpServer::onMessageReceived(int index, const QDltMsg& msg) {
@@ -200,6 +201,29 @@ std::tuple<int64_t, int64_t> DltMcpServer::splitEcuTime(int64_t ecuTimeTicks) {
 }
 
 int64_t DltMcpServer::getBaseTimestamp() { return index_.get<0>().begin()->timestamp; }
+
+void DltMcpServer::computeFileRanges() {
+    file_ranges_.clear();
+    if (!dlt_file_) {
+        return;
+    }
+    int start = 0;
+    for (int i = 0; i < dlt_file_->getNumberOfFiles(); i++) {
+        const int count = dlt_file_->getFileMsgNumber(i);
+        file_ranges_.push_back({dlt_file_->getFileName(i).toStdString(), count, start});
+        start += count;
+    }
+}
+
+void DltMcpServer::liveUpdateLastFileMessageCount() {
+    if (!dlt_file_ || file_ranges_.empty()) {
+        return;
+    }
+    int num_files = dlt_file_->getNumberOfFiles();
+    if (num_files > 0) {
+        file_ranges_.back().message_count = dlt_file_->getFileMsgNumber(num_files - 1);
+    }
+}
 
 std::string DltMcpServer::formatMessageLine(int64_t hours, int64_t minutes, int64_t seconds,
                                             int64_t millis, char levelChar, const std::string& ctid,
@@ -316,7 +340,7 @@ mcp::json DltMcpServer::get_log_summary(const mcp::json& /*params*/,
         log_levels.push_back({{level.second, level.first}});
     }
     mcp::json summary = {{"message_count", dlt_file_->size()},
-                         {"file_size", dlt_file_->fileSize()},
+                         {"total_file_size", dlt_file_->fileSize()},
                          {"log_start", log_start},
                          {"duration_seconds", duration_sec},
                          {"min_timestamp", 0.0},
@@ -343,6 +367,15 @@ mcp::json DltMcpServer::get_log_summary(const mcp::json& /*params*/,
     if (!context.empty()) {
         summary["context_info"] = context;
     }
+
+    mcp::json files_array = mcp::json::array();
+    for (const auto& info : file_ranges_) {
+        files_array.push_back({{"name", info.name},
+                               {"message_count", info.message_count},
+                               {"start_index", info.start_index}});
+    }
+    summary["files"] = files_array;
+
     return makeTextResult(summary.dump());
 }
 
@@ -373,8 +406,8 @@ std::string DltMcpServer::loadContextFile() {
         return {};
     }
 
-    context_file_content_ = std::string(std::istreambuf_iterator<char>(file),
-                                        std::istreambuf_iterator<char>());
+    context_file_content_ =
+        std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
     return context_file_content_;
 }
 

@@ -11,8 +11,8 @@
 
 #include "dashboard.h"
 #include "plugininterface.h"
-#include <QSettings>
 #include <QObject>
+#include <QSettings>
 
 #include <mcp_resource.h>
 #include <mcp_server.h>
@@ -105,6 +105,12 @@ private:
         std::map<int, size_t> levels; // <Log level, number of messages.>
     };
 
+    struct LogFileInfo {
+        std::string name;
+        int message_count;
+        int start_index;
+    };
+
     using Distribution = bmi::multi_index_container<
         DistributionEntry,
         bmi::indexed_by<bmi::ordered_unique<bmi::composite_key<
@@ -137,6 +143,8 @@ private:
 
     int64_t getBaseTimestamp();
 
+    void computeFileRanges();
+    void liveUpdateLastFileMessageCount();
     std::string loadContextFile();
 
     static std::string formatMessageLine(int64_t hours, int64_t minutes, int64_t seconds,
@@ -157,7 +165,7 @@ private:
     QString plugin_name_displayed = QString("DLT MCP Server");
 
     QDltFile* dlt_file_{nullptr};
-     int selected_index_{-1};
+    int selected_index_{-1};
 
     std::unordered_map<std::string, size_t> apid_map_;
     std::unordered_map<std::string, size_t> ctid_map_;
@@ -176,6 +184,8 @@ private:
 
     std::string context_file_path_;
     std::string context_file_content_;
+
+    std::vector<LogFileInfo> file_ranges_;
 };
 
 #endif // DLT_MCP_SERVER_H_

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Plugin will now detect and display if the server cannot be started (e.g. port is busy).
+- Support for multiple opened files and live logging cases.
 
 ### Documentation
 - Minor formatting changes in README.md
