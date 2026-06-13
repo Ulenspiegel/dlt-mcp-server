@@ -9,8 +9,12 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <QLoggingCategory>
+
 inline constexpr int DefaultPort = 8888;
 inline constexpr const char* PortKey = "server_port";
 inline constexpr const char* ContextFileKey = "context_file_path";
+
+Q_DECLARE_LOGGING_CATEGORY(logDltMcpServer)
 
 #endif // CONFIG_H

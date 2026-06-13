@@ -16,6 +16,9 @@ class DltMcpServer;
 class QLabel;
 class QPushButton;
 class QSettings;
+class QTabWidget;
+class QTextBrowser;
+class QUrl;
 
 class Dashboard : public QWidget {
     Q_OBJECT
@@ -23,6 +26,11 @@ class Dashboard : public QWidget {
 public:
     explicit Dashboard(QSettings* settings, DltMcpServer* server, QWidget* parent = nullptr);
     ~Dashboard() override = default;
+
+public slots:
+    void setReport(const QString& markdown);
+    void clearReport();
+    void jumpToMessage(int index);
 
 signals:
     void openSettings();
@@ -32,13 +40,17 @@ protected:
     void timerEvent(QTimerEvent* ev) override;
 
 private:
+    void onAnchorClicked(const QUrl& url);
     void updateContextWarning();
     void checkServerStatus();
     void updateFileCount(int count);
 
     QSettings* settings_ = nullptr;
     DltMcpServer* server_ = nullptr;
+    QTabWidget* tabWidget_;
+    QTextBrowser* reportBrowser_;
     QLabel* statusLabel_;
+    QLabel* portLabel_;
     QLabel* fileCountLabel_;
     QLabel* contextWarningLabel_;
     QPushButton* sseCopyBtn_;

@@ -11,6 +11,8 @@
 
 #include <mcp_message.h>
 
+Q_LOGGING_CATEGORY(logDltMcpServer, "dlt.mcp.server", QtDebugMsg)
+
 #include <cctype>
 #include <climits>
 #include <filesystem>
@@ -44,6 +46,35 @@ bool DltMcpServer::loadConfig(QString /*filename*/) { return true; }
 bool DltMcpServer::saveConfig(QString /*filename*/) { return true; }
 
 QStringList DltMcpServer::infoConfig() { return {}; }
+
+void DltMcpServer::jumpToMessage(int index) {
+    if (control_ && index >= 0) {
+        control_->jumpToMsg(index);
+    }
+}
+
+bool DltMcpServer::initControl(QDltControl* control) {
+    control_ = control;
+    return true;
+}
+
+bool DltMcpServer::initConnections(QStringList /*list*/) { return true; }
+
+bool DltMcpServer::controlMsg(int /*index*/, QDltMsg& /*msg*/) { return true; }
+
+bool DltMcpServer::stateChanged(int /*index*/,
+                                QDltConnection::QDltConnectionState /*connectionState*/,
+                                QString /*hostname*/) {
+    return true;
+}
+
+bool DltMcpServer::autoscrollStateChanged(bool /*enabled*/) { return true; }
+
+void DltMcpServer::initMessageDecoder(QDltMessageDecoder* /*messageDecoder*/) {}
+
+void DltMcpServer::initMainTableView(QTableView* /*pTableView*/) {}
+
+void DltMcpServer::configurationChanged() {}
 
 QWidget* DltMcpServer::initViewer() {
     dashboard_ = new Dashboard(settings_.get(), this);
@@ -322,6 +353,17 @@ void DltMcpServer::registerMcpTools() {
     server_->register_tool(selection_tool, [this](const auto& params, const auto& session_id) {
         return get_selection(params, session_id);
     });
+    mcp::tool report_tool =
+        mcp::tool_builder("set_report")
+            .with_description("Set the Markdown report content in the plugin widget. "
+                              "Use [text](jump://msg/<id>) links where <id> is the message ID (#) "
+                              "from other tools, to create clickable message references. "
+                              "Pass empty string to clear the report.")
+            .with_string_param("markdown", "Markdown-formatted report content to display", true)
+            .build();
+    server_->register_tool(report_tool, [this](const auto& params, const auto& session_id) {
+        return set_report(params, session_id);
+    });
 }
 
 mcp::json DltMcpServer::get_log_summary(const mcp::json& /*params*/,
@@ -475,14 +517,17 @@ mcp::json DltMcpServer::search(const mcp::json& params, const std::string& /*ses
     bool count_only = params.contains("count") ? params["count"].get<bool>() : false;
 
     int limit = params.contains("limit") ? params["limit"].get<int>() : 20;
-    if (limit > 100)
+    if (limit > 100) {
         limit = 100;
-    if (limit < 1)
+    }
+    if (limit < 1) {
         limit = 1;
+    }
 
     int offset = params.contains("offset") ? params["offset"].get<int>() : 0;
-    if (offset < 0)
+    if (offset < 0) {
         offset = 0;
+    }
 
     // Resolve CTID/APID string filters to numeric indices.
     size_t ctid_idx = 0;
@@ -530,18 +575,22 @@ mcp::json DltMcpServer::search(const mcp::json& params, const std::string& /*ses
         const auto& entry = *it;
 
         // CTID filter
-        if (has_ctid && entry.ctid != ctid_idx)
+        if (has_ctid && entry.ctid != ctid_idx) {
             continue;
+        }
 
         // APID filter
-        if (has_apid && entry.apid != apid_idx)
+        if (has_apid && entry.apid != apid_idx) {
             continue;
+        }
 
         // Log level range filter (numeric bounds on DLT level value)
-        if (has_min_level && entry.level < min_log_level)
+        if (has_min_level && entry.level < min_log_level) {
             continue;
-        if (has_max_level && entry.level > max_log_level)
+        }
+        if (has_max_level && entry.level > max_log_level) {
             continue;
+        }
 
         // Keyword filter - requires fetching the message, consider caching in memory.
         if (has_keyword) {
@@ -701,6 +750,27 @@ mcp::json DltMcpServer::get_selection(const mcp::json& /*params*/,
     oss << cleanPayload(payload);
 
     return makeTextResult(oss.str());
+}
+
+mcp::json DltMcpServer::set_report(const mcp::json& params, const std::string& /*session_id*/) {
+    if (!dashboard_) {
+        throw mcp::mcp_exception(mcp::error_code::internal_error, "Dashboard not initialized");
+    }
+    if (!params.contains("markdown") || !params["markdown"].is_string()) {
+        throw mcp::mcp_exception(mcp::error_code::invalid_params, "markdown parameter is required");
+    }
+    QString markdown = QString::fromStdString(params["markdown"].get<std::string>());
+    QMetaObject::invokeMethod(
+        dashboard_,
+        [dash = dashboard_, markdown]() {
+            if (markdown.isEmpty()) {
+                dash->clearReport();
+            } else {
+                dash->setReport(markdown);
+            }
+        },
+        Qt::QueuedConnection);
+    return makeTextResult("");
 }
 
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)

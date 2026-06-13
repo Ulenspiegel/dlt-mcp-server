@@ -34,11 +34,13 @@ namespace bmi = boost::multi_index;
 class DltMcpServer : public QObject,
                      QDLTPluginInterface,
                      QDltPluginViewerInterface,
-                     QDLTPluginDecoderInterface {
+                     QDLTPluginDecoderInterface,
+                     QDltPluginControlInterface {
     Q_OBJECT
     Q_INTERFACES(QDLTPluginInterface)
     Q_INTERFACES(QDltPluginViewerInterface)
     Q_INTERFACES(QDLTPluginDecoderInterface)
+    Q_INTERFACES(QDltPluginControlInterface)
 #if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
     Q_PLUGIN_METADATA(IID "org.genivi.DLT.DltMcpServerPlugin")
 #endif
@@ -62,6 +64,7 @@ public:
 
     QSettings* settings() const { return settings_.get(); }
     bool isServerRunning() const { return server_->is_running(); }
+    void jumpToMessage(int index);
 
     /* QDltPluginViewerInterface */
     QWidget* initViewer() override;
@@ -79,6 +82,17 @@ public:
     /* QDltPluginDecoderInterface */
     bool isMsg(QDltMsg& msg, int triggeredByUser) override;
     bool decodeMsg(QDltMsg& msg, int triggeredByUser) override;
+
+    /* QDltPluginControlInterface */
+    bool initControl(QDltControl* control) override;
+    bool initConnections(QStringList list) override;
+    bool controlMsg(int index, QDltMsg& msg) override;
+    bool stateChanged(int index, QDltConnection::QDltConnectionState connectionState,
+                      QString hostname) override;
+    bool autoscrollStateChanged(bool enabled) override;
+    void initMessageDecoder(QDltMessageDecoder* messageDecoder) override;
+    void initMainTableView(QTableView* pTableView) override;
+    void configurationChanged() override;
 
     /* internal variables */
     Dashboard* dashboard_;
@@ -164,10 +178,12 @@ private:
     mcp::json search(const mcp::json& params, const std::string& session_id);
     mcp::json get_messages(const mcp::json& params, const std::string& session_id);
     mcp::json get_selection(const mcp::json& params, const std::string& session_id);
+    mcp::json set_report(const mcp::json& params, const std::string& session_id);
 
     QString plugin_name_displayed = QString("DLT MCP Server");
 
     QDltFile* dlt_file_{nullptr};
+    QDltControl* control_{nullptr};
     int selected_index_{-1};
 
     std::unordered_map<std::string, size_t> apid_map_;

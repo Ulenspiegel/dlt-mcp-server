@@ -7,13 +7,15 @@ A plugin for DLT Viewer that exposes DLT log analysis capabilities via the Model
 - **Log Summary** – Get message count, file size, timestamp range, duration, and available CTID/APID contexts.
 - **Search** – Filter log messages by CTID, APID, log level, timestamp range, and keyword, with pagination.
 - **Message Retrieval** – Fetch full payload for specific message IDs.
+- **Selection** – Get details of the currently selected message in DLT Viewer.
+- **Report** – Display Markdown reports in the plugin widget with clickable links that navigate DLT Viewer's log window to specific messages.
 
 ## Requirements
 
 - DLT Viewer 2.30.0
 - CMake 3.10+
 - Boost 1.74+
-- Qt5/Qt6 (matching DLT Viewer's build)
+- Qt 5.14+ / Qt 6 (matching DLT Viewer's build)
 
 ## Build
 

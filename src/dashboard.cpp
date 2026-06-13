@@ -15,46 +15,60 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QSettings>
+#include <QTabWidget>
+#include <QTextBrowser>
 #include <QTimer>
+#include <QUrl>
 #include <QVBoxLayout>
 
 #include <filesystem>
 
 Dashboard::Dashboard(QSettings* settings, DltMcpServer* server, QWidget* parent)
-    : QWidget(parent), settings_(settings), server_(server), statusLabel_(new QLabel(this)),
-      fileCountLabel_(new QLabel(this)), contextWarningLabel_(new QLabel(this)),
-      sseCopyBtn_(new QPushButton("Copy SSE URL", this)),
-      httpCopyBtn_(new QPushButton("Copy Streamable HTTP URL", this)),
-      settingsBtn_(new QPushButton("Settings...", this)) {
+    : QWidget(parent), settings_(settings), server_(server), tabWidget_(new QTabWidget(this)),
+      reportBrowser_(new QTextBrowser(this)), statusLabel_(new QLabel(this)),
+      portLabel_(new QLabel(this)), fileCountLabel_(new QLabel(this)),
+      contextWarningLabel_(new QLabel(this)), sseCopyBtn_(new QPushButton("Copy SSE URL", this)),
+      httpCopyBtn_(new QPushButton("Copy HTTP URL", this)),
+      settingsBtn_(new QPushButton("Settings", this)) {
 
     port_ = settings_->value(PortKey, DefaultPort).toInt();
 
-    statusLabel_->setText(QString("<b>MCP Server: localhost:%1</b><br>Running").arg(port_));
-    statusLabel_->setStyleSheet("color: #4caf50; font-size: 14px;");
-    statusLabel_->setAlignment(Qt::AlignCenter);
+    // Report tab
+    reportBrowser_->setOpenLinks(false);
+    reportBrowser_->setPalette(QApplication::palette());
+    reportBrowser_->setPlaceholderText("No report generated");
+    connect(reportBrowser_, &QTextBrowser::anchorClicked, this, &Dashboard::onAnchorClicked);
+    tabWidget_->addTab(reportBrowser_, "Report");
+
+    // Status labels
+    statusLabel_->setText("Starting...");
+    statusLabel_->setStyleSheet("color: #9e9e9e; font-size: 12px;");
+
+    portLabel_->setText(QString("localhost:%1").arg(port_));
+    portLabel_->setStyleSheet("color: #9e9e9e; font-size: 12px;");
 
     fileCountLabel_->setStyleSheet("color: #9e9e9e; font-size: 12px;");
-    fileCountLabel_->setAlignment(Qt::AlignCenter);
 
     contextWarningLabel_->setVisible(false);
     contextWarningLabel_->setStyleSheet("color: #ff9800; font-size: 12px;");
-    contextWarningLabel_->setAlignment(Qt::AlignCenter);
-    contextWarningLabel_->setWordWrap(true);
 
-    auto* btnLayout = new QHBoxLayout();
-    btnLayout->addWidget(sseCopyBtn_);
-    btnLayout->addWidget(httpCopyBtn_);
-    btnLayout->addSpacing(16);
-    btnLayout->addWidget(settingsBtn_);
+    // Status bar layout - single line
+    auto* statusBarLayout = new QHBoxLayout();
+    statusBarLayout->addWidget(statusLabel_);
+    statusBarLayout->addSpacing(8);
+    statusBarLayout->addWidget(portLabel_);
+    statusBarLayout->addSpacing(8);
+    statusBarLayout->addWidget(fileCountLabel_);
+    statusBarLayout->addSpacing(8);
+    statusBarLayout->addWidget(contextWarningLabel_);
+    statusBarLayout->addStretch();
+    statusBarLayout->addWidget(sseCopyBtn_);
+    statusBarLayout->addWidget(httpCopyBtn_);
+    statusBarLayout->addWidget(settingsBtn_);
 
     auto* mainLayout = new QVBoxLayout(this);
-    mainLayout->addStretch();
-    mainLayout->addWidget(statusLabel_);
-    mainLayout->addWidget(fileCountLabel_);
-    mainLayout->addWidget(contextWarningLabel_);
-    mainLayout->addSpacing(16);
-    mainLayout->addLayout(btnLayout);
-    mainLayout->addStretch();
+    mainLayout->addWidget(tabWidget_, 1);
+    mainLayout->addLayout(statusBarLayout);
 
     connect(sseCopyBtn_, &QPushButton::clicked, [this]() {
         QApplication::clipboard()->setText(QString("http://localhost:%1/sse").arg(port_));
@@ -68,7 +82,7 @@ Dashboard::Dashboard(QSettings* settings, DltMcpServer* server, QWidget* parent)
         QApplication::clipboard()->setText(QString("http://localhost:%1/mcp").arg(port_));
         pressedBtn_ = httpCopyBtn_;
         originalText_ = httpCopyBtn_->text();
-        httpCopyBtn_->setText("Streamable HTTP URL copied!");
+        httpCopyBtn_->setText("HTTP URL copied!");
         restoreTimerId_ = startTimer(1500);
     });
 
@@ -103,8 +117,8 @@ void Dashboard::updateContextWarning() {
     auto stat = std::filesystem::status(path, ec);
     if (ec || stat.type() != std::filesystem::file_type::regular) {
         auto file_name = std::filesystem::path(path).filename().string();
-        contextWarningLabel_->setText(QString("<b>Warning:</b> Context file not found:<br>%1")
-                                          .arg(QString::fromStdString(file_name)));
+        contextWarningLabel_->setText(
+            QString("Context file missing: %1").arg(QString::fromStdString(file_name)));
         contextWarningLabel_->setVisible(true);
     } else {
         contextWarningLabel_->setVisible(false);
@@ -112,9 +126,12 @@ void Dashboard::updateContextWarning() {
 }
 
 void Dashboard::checkServerStatus() {
-    if (server_ && !server_->isServerRunning()) {
-        statusLabel_->setText("<b>MCP Server failed to start</b><br>Port may be busy");
-        statusLabel_->setStyleSheet("color: #f44336; font-size: 14px;");
+    if (server_ && server_->isServerRunning()) {
+        statusLabel_->setText("Running");
+        statusLabel_->setStyleSheet("color: #4caf50; font-size: 12px;");
+    } else {
+        statusLabel_->setText("Failed");
+        statusLabel_->setStyleSheet("color: #f44336; font-size: 12px;");
     }
 }
 
@@ -133,4 +150,28 @@ void Dashboard::timerEvent(QTimerEvent* ev) {
         restoreTimerId_ = 0;
     }
     QWidget::timerEvent(ev);
+}
+
+void Dashboard::setReport(const QString& markdown) { reportBrowser_->setMarkdown(markdown); }
+
+void Dashboard::clearReport() { reportBrowser_->clear(); }
+
+void Dashboard::onAnchorClicked(const QUrl& url) {
+    if (url.scheme() != "jump" || url.authority() != "msg") {
+        return;
+    }
+    QString indexStr = url.path().mid(1);
+    bool ok = false;
+    int index = indexStr.toInt(&ok);
+    if (!ok || index < 0) {
+        return;
+    }
+    qCDebug(logDltMcpServer) << "jump to message" << index;
+    jumpToMessage(index);
+}
+
+void Dashboard::jumpToMessage(int index) {
+    if (server_) {
+        server_->jumpToMessage(index);
+    }
 }

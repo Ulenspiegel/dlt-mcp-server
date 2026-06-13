@@ -8,9 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `set_report` MCP tool to display Markdown reports in the plugin widget.
+- Report tab with clickable `[text](jump://msg/<id>)` links that jump DLT Viewer to specific messages.
 - Plugin will now detect and display if the server cannot be started (e.g. port is busy).
 - Support for multiple opened files and live logging cases.
 - Info line on the dashboard indicating how many files are currently loaded.
+- Status label reflects actual server state (Starting/Running/Failed).
+
+### Requirements
+- Minimum Qt version raised to 5.14 (needed for `QTextBrowser::setMarkdown()`).
 
 ### Documentation
 - Minor formatting changes in README.md
