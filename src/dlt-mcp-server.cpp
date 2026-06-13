@@ -353,12 +353,18 @@ void DltMcpServer::registerMcpTools() {
     server_->register_tool(selection_tool, [this](const auto& params, const auto& session_id) {
         return get_selection(params, session_id);
     });
+    // TODO: Report history — store multiple reports, navigation UI.
+    //   Decision needed: labeling (agent-provided heading vs timestamp),
+    //   storage (memory vs disk), capacity, navigation controls.
     mcp::tool report_tool =
         mcp::tool_builder("set_report")
             .with_description("Set the Markdown report content in the plugin widget. "
                               "Use [text](jump://msg/<id>) links where <id> is the message ID (#) "
                               "from other tools, to create clickable message references. "
-                              "Pass empty string to clear the report.")
+                              "Pass empty string to clear the report. "
+                              "Only generate reports when you have a conclusive analysis result — "
+                              "do not overwrite existing reports during intermediate exploration. "
+                              "If unsure whether the analysis is complete, ask the user first.")
             .with_string_param("markdown", "Markdown-formatted report content to display", true)
             .build();
     server_->register_tool(report_tool, [this](const auto& params, const auto& session_id) {
