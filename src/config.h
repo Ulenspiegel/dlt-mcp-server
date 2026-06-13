@@ -17,4 +17,4 @@ inline constexpr const char* ContextFileKey = "context_file_path";
 
 Q_DECLARE_LOGGING_CATEGORY(logDltMcpServer)
 
-#endif // CONFIG_H
+#endif  // CONFIG_H

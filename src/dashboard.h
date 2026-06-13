@@ -9,8 +9,9 @@
 #ifndef DASHBOARD_H
 #define DASHBOARD_H
 
-#include "config.h"
 #include <QWidget>
+
+#include "config.h"
 
 class DltMcpServer;
 class QLabel;
@@ -21,45 +22,46 @@ class QTextBrowser;
 class QUrl;
 
 class Dashboard : public QWidget {
-    Q_OBJECT
+  Q_OBJECT
 
-public:
-    explicit Dashboard(QSettings* settings, DltMcpServer* server, QWidget* parent = nullptr);
-    ~Dashboard() override = default;
+ public:
+  explicit Dashboard(QSettings* settings, DltMcpServer* server,
+                     QWidget* parent = nullptr);
+  ~Dashboard() override = default;
 
-public slots:
-    void setReport(const QString& markdown);
-    void clearReport();
-    void jumpToMessage(int index);
+ public slots:
+  void setReport(const QString& markdown);
+  void clearReport();
+  void jumpToMessage(int index);
 
-signals:
-    void openSettings();
+ signals:
+  void openSettings();
 
-protected:
-    void showEvent(QShowEvent* event) override;
-    void timerEvent(QTimerEvent* ev) override;
+ protected:
+  void showEvent(QShowEvent* event) override;
+  void timerEvent(QTimerEvent* ev) override;
 
-private:
-    void onAnchorClicked(const QUrl& url);
-    void updateContextWarning();
-    void checkServerStatus();
-    void updateFileCount(int count);
+ private:
+  void onAnchorClicked(const QUrl& url);
+  void updateContextWarning();
+  void checkServerStatus();
+  void updateFileCount(int count);
 
-    QSettings* settings_ = nullptr;
-    DltMcpServer* server_ = nullptr;
-    QTabWidget* tabWidget_;
-    QTextBrowser* reportBrowser_;
-    QLabel* statusLabel_;
-    QLabel* portLabel_;
-    QLabel* fileCountLabel_;
-    QLabel* contextWarningLabel_;
-    QPushButton* sseCopyBtn_;
-    QPushButton* httpCopyBtn_;
-    QPushButton* settingsBtn_;
-    int port_ = DefaultPort;
-    int restoreTimerId_ = 0;
-    QPushButton* pressedBtn_ = nullptr;
-    QString originalText_;
+  QSettings* settings_ = nullptr;
+  DltMcpServer* server_ = nullptr;
+  QTabWidget* tabWidget_;
+  QTextBrowser* reportBrowser_;
+  QLabel* statusLabel_;
+  QLabel* portLabel_;
+  QLabel* fileCountLabel_;
+  QLabel* contextWarningLabel_;
+  QPushButton* sseCopyBtn_;
+  QPushButton* httpCopyBtn_;
+  QPushButton* settingsBtn_;
+  int port_ = DefaultPort;
+  int restoreTimerId_ = 0;
+  QPushButton* pressedBtn_ = nullptr;
+  QString originalText_;
 };
 
-#endif // DASHBOARD_H
+#endif  // DASHBOARD_H

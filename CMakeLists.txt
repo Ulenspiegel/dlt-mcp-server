@@ -45,3 +45,16 @@ target_compile_definitions(dlt-mcp-server PRIVATE DLT_VIEWER_PLUGIN_VERSION="${P
 target_link_libraries(dlt-mcp-server ${QT_PREFIX}::Widgets Boost::headers mcp::mcp fmt::fmt)
 
 add_plugin(dlt-mcp-server)
+
+find_program(CLANG_FORMAT NAMES clang-format clang-format-14)
+if(CLANG_FORMAT)
+    file(GLOB FORMAT_SOURCES src/*.cpp src/*.h)
+    add_custom_target(clang-format
+        COMMAND ${CLANG_FORMAT} -i -style=file ${FORMAT_SOURCES}
+        COMMENT "Formatting with clang-format"
+        VERBATIM)
+    add_custom_target(clang-format-check
+        COMMAND ${CLANG_FORMAT} --dry-run --Werror -style=file ${FORMAT_SOURCES}
+        COMMENT "Checking formatting"
+        VERBATIM)
+endif()

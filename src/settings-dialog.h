@@ -17,24 +17,24 @@ class QPushButton;
 class QSettings;
 
 class SettingsDialog : public QDialog {
-    Q_OBJECT
+  Q_OBJECT
 
-  public:
-    explicit SettingsDialog(QSettings* settings, QWidget* parent = nullptr);
-    ~SettingsDialog() override = default;
+ public:
+  explicit SettingsDialog(QSettings* settings, QWidget* parent = nullptr);
+  ~SettingsDialog() override = default;
 
-    int getPort() const;
-    QString getContextFilePath() const;
+  int getPort() const;
+  QString getContextFilePath() const;
 
-  private:
-    void loadSettings();
-    void saveSettings();
+ private:
+  void loadSettings();
+  void saveSettings();
 
-    QSettings* settings_;
-    QSpinBox* portSpin_;
-    QLineEdit* contextFileEdit_;
-    QPushButton* browseBtn_;
-    QPushButton* resetBtn_;
+  QSettings* settings_;
+  QSpinBox* portSpin_;
+  QLineEdit* contextFileEdit_;
+  QPushButton* browseBtn_;
+  QPushButton* resetBtn_;
 };
 
-#endif // SETTINGS_DIALOG_H
+#endif  // SETTINGS_DIALOG_H
