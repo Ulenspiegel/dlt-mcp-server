@@ -30,7 +30,7 @@ class Dashboard : public QWidget {
   ~Dashboard() override = default;
 
  public slots:
-  void setReport(const QString& markdown);
+  void setReport(const std::string& markdown);
   void clearReport();
   void jumpToMessage(int index);
 

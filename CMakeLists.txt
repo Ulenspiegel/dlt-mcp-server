@@ -38,11 +38,21 @@ FetchContent_MakeAvailable(cpp-mcp)
 add_library(mcp::mcp ALIAS mcp)
 target_include_directories(mcp INTERFACE ${cpp-mcp_SOURCE_DIR}/common ${cpp-mcp_SOURCE_DIR}/include)
 
+FetchContent_Declare(
+        md4c
+        GIT_REPOSITORY https://github.com/mity/md4c.git
+        GIT_TAG release-0.5.3
+)
+set(BUILD_MD2HTML_EXECUTABLE OFF CACHE BOOL "" FORCE)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+FetchContent_MakeAvailable(md4c)
+add_library(md4c::md4c-html ALIAS md4c-html)
+
 add_library(dlt-mcp-server MODULE src/dlt-mcp-server.cpp src/dashboard.cpp src/settings-dialog.cpp)
 
 target_compile_definitions(dlt-mcp-server PRIVATE DLT_VIEWER_PLUGIN_VERSION="${PLUGIN_VERSION}")
 
-target_link_libraries(dlt-mcp-server ${QT_PREFIX}::Widgets Boost::headers mcp::mcp fmt::fmt)
+target_link_libraries(dlt-mcp-server ${QT_PREFIX}::Widgets Boost::headers mcp::mcp fmt::fmt md4c::md4c-html)
 
 add_plugin(dlt-mcp-server)
 

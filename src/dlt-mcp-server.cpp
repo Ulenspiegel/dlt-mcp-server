@@ -848,12 +848,11 @@ mcp::json DltMcpServer::set_report(const mcp::json& params,
     throw mcp::mcp_exception(mcp::error_code::invalid_params,
                              "markdown parameter is required");
   }
-  QString markdown =
-      QString::fromStdString(params["markdown"].get<std::string>());
+  std::string markdown = params["markdown"].get<std::string>();
   QMetaObject::invokeMethod(
       dashboard_,
       [dash = dashboard_, markdown]() {
-        if (markdown.isEmpty()) {
+        if (markdown.empty()) {
           dash->clearReport();
         } else {
           dash->setReport(markdown);

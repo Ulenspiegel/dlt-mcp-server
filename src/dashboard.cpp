@@ -8,6 +8,8 @@
 
 #include "dashboard.h"
 
+#include <md4c-html.h>
+
 #include <QApplication>
 #include <QClipboard>
 #include <QHBoxLayout>
@@ -20,8 +22,20 @@
 #include <QUrl>
 #include <QVBoxLayout>
 #include <filesystem>
+#include <string>
 
 #include "dlt-mcp-server.h"
+
+static std::string markdownToHtml(const std::string& markdown) {
+  std::string html;
+  md_html(
+      markdown.data(), markdown.size(),
+      +[](const MD_CHAR* data, MD_SIZE size, void* userdata) {
+        static_cast<std::string*>(userdata)->append(data, size);
+      },
+      &html, MD_DIALECT_GITHUB, 0);
+  return html;
+}
 
 Dashboard::Dashboard(QSettings* settings, DltMcpServer* server, QWidget* parent)
     : QWidget(parent),
@@ -161,8 +175,9 @@ void Dashboard::timerEvent(QTimerEvent* ev) {
   QWidget::timerEvent(ev);
 }
 
-void Dashboard::setReport(const QString& markdown) {
-  reportBrowser_->setMarkdown(markdown);
+void Dashboard::setReport(const std::string& markdown) {
+  std::string html = markdownToHtml(markdown);
+  reportBrowser_->setHtml(QString::fromUtf8(html.data(), html.size()));
 }
 
 void Dashboard::clearReport() { reportBrowser_->clear(); }
