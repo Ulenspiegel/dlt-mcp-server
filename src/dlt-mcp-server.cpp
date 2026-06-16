@@ -13,6 +13,8 @@
 #include <QStandardPaths>
 
 #include "settings-dialog.h"
+#include "utility/message.h"
+#include "utility/time.h"
 
 Q_LOGGING_CATEGORY(logDltMcpServer, "dlt.mcp.server", QtDebugMsg)
 
@@ -257,15 +259,6 @@ size_t DltMcpServer::getEcuidIndex(const std::string& ecuid) {
   return ecuids_.size() - 1;
 }
 
-int64_t DltMcpServer::getWallClockNs(const QDltMsg& msg) {
-  return static_cast<int64_t>(msg.getTime()) * 1'000'000'000LL +
-         static_cast<int64_t>(msg.getMicroseconds()) * 1'000LL;
-}
-
-int64_t DltMcpServer::getEcuTimeTicks(const QDltMsg& msg) {
-  return static_cast<int64_t>(msg.getTimestamp());
-}
-
 char DltMcpServer::getLevelChar(int level) {
   auto it = log_levels_.find(level);
   if (it != log_levels_.end()) {
@@ -284,22 +277,6 @@ std::string DltMcpServer::cleanPayload(const QString& payload) {
     }
   }
   return result;
-}
-
-std::tuple<int64_t, int64_t, int64_t, int64_t> DltMcpServer::splitRelativeTime(
-    int64_t offsetNs) {
-  int64_t total_ms = offsetNs / 1'000'000;
-  return {total_ms / 3600000, (total_ms % 3600000) / 60000,
-          (total_ms % 60000) / 1000, total_ms % 1000};
-}
-
-std::tuple<int64_t, int64_t> DltMcpServer::splitRelativeTimestamp(
-    int64_t offsetNs) {
-  return {offsetNs / 1'000'000'000LL, (offsetNs % 1'000'000'000LL) / 1000LL};
-}
-
-std::tuple<int64_t, int64_t> DltMcpServer::splitEcuTime(int64_t ecuTimeTicks) {
-  return {ecuTimeTicks / 10000, (ecuTimeTicks % 10000) / 10};
 }
 
 int64_t DltMcpServer::getBaseTimestamp() {

@@ -146,21 +146,8 @@ class DltMcpServer : public QObject,
   size_t getApidIndex(const std::string& apid);
   size_t getEcuidIndex(const std::string& ecuid);
 
-  static int64_t getWallClockNs(const QDltMsg& msg);
-  static int64_t getEcuTimeTicks(const QDltMsg& msg);
-
   char getLevelChar(int level);
   static std::string cleanPayload(const QString& payload);
-
-  // Returns {hours, minutes, seconds, milliseconds} from nanosecond offset.
-  static std::tuple<int64_t, int64_t, int64_t, int64_t> splitRelativeTime(
-      int64_t offsetNs);
-
-  // Returns {seconds, microseconds} from nanosecond offset.
-  static std::tuple<int64_t, int64_t> splitRelativeTimestamp(int64_t offsetNs);
-
-  // Returns {seconds, milliseconds} from ECU time ticks (0.1ms units).
-  static std::tuple<int64_t, int64_t> splitEcuTime(int64_t ecuTimeTicks);
 
   int64_t getBaseTimestamp();
 
