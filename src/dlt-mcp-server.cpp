@@ -20,6 +20,7 @@ Q_LOGGING_CATEGORY(logDltMcpServer, "dlt.mcp.server", QtDebugMsg)
 
 #include <cctype>
 #include <climits>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -339,8 +340,24 @@ std::string DltMcpServer::formatMessageLine(
       relUsec, ecuSec, ecuMmm);
 }
 
-mcp::json DltMcpServer::makeTextResult(const std::string& text) {
-  return {{{"type", "text"}, {"text", text}}};
+bool DltMcpServer::looksLikeRegex(const std::string& s) {
+  static constexpr char kMetaChars[] = "*+?^$[]";
+  for (const char c : s) {
+    if (strchr(kMetaChars, c)) return true;
+  }
+  for (size_t i = 0; i + 1 < s.size(); ++i) {
+    if (s[i] == '\\' && strchr("dwWsSb", s[i + 1])) return true;
+  }
+  return false;
+}
+
+mcp::json DltMcpServer::makeTextResult(const std::string& text,
+                                       const std::string& warning) {
+  if (warning.empty()) {
+    return {{{"type", "text"}, {"text", text}}};
+  }
+  return {{{"type", "text"}, {"text", text}},
+          {{"type", "text"}, {"text", "[WARNING] " + warning}}};
 }
 
 void DltMcpServer::initMcpServer() {
@@ -368,21 +385,16 @@ void DltMcpServer::registerMcpTools() {
       mcp::tool_builder("search")
           .with_description(
               "Retrieve previews of log lines, optionally filtered by CTID, "
-              "APID, log level(s), "
-              "timestamp range, keyword and paginated by limit/offset. Log "
-              "lines include "
-              "relative time offset (+HH:MM:SS.mmm), log level, CTID/APID, "
-              "message ID (#), "
+              "APID, log level(s), timestamp range, keyword and paginated "
+              "by limit/offset. Log lines include relative time offset "
+              "(+HH:MM:SS.mmm), log level, CTID/APID, message ID (#), "
               "relative timestamp in seconds from log start (@), and ECU "
-              "uptime in seconds (T). "
-              "The value after @ can be reused directly as min_timestamp or "
-              "max_timestamp "
-              "parameter (float64, seconds from start of log). If payload "
-              "exceeds 100 "
-              "characters, the log line is a preview and ends with symbol ~. "
-              "Use count=true to "
-              "get only the number of matching lines. Use "
-              "case_insensitive=true for "
+              "uptime in seconds (T). The value after @ can be reused "
+              "directly as min_timestamp or max_timestamp parameter "
+              "(float64, seconds from start of log). If payload exceeds "
+              "100 characters, the log line is a preview and ends with "
+              "symbol ~. Use count=true to get only the number of "
+              "matching lines. Use case_insensitive=true for "
               "case-insensitive keyword matching.")
           .with_string_param("ctid", "CTID to restrict the output to", false)
           .with_string_param("apid", "APID to restrict the output to", false)
@@ -426,8 +438,7 @@ void DltMcpServer::registerMcpTools() {
       mcp::tool_builder("get_messages")
           .with_description(
               "Retrieve a list of log messages with given IDs (#), including "
-              "full "
-              "payload. The limit is 20 messages per tool call.")
+              "full payload. The limit is 20 messages per tool call.")
           .with_array_param("message_ids",
                             "IDs of the log messages to retrieve", "number")
           .build();
@@ -456,13 +467,11 @@ void DltMcpServer::registerMcpTools() {
           .with_description(
               "Set the Markdown report content in the plugin widget. "
               "Use [text](jump://msg/<id>) links where <id> is the message ID "
-              "(#) "
-              "from other tools, to create clickable message references. "
+              "(#) from other tools, to create clickable message references. "
               "Pass empty string to clear the report. "
               "Only generate reports when you have a conclusive analysis "
-              "result — "
-              "do not overwrite existing reports during intermediate "
-              "exploration. "
+              "result — do not overwrite existing reports during "
+              "intermediate exploration. "
               "If unsure whether the analysis is complete, ask the user first.")
           .with_string_param(
               "markdown", "Markdown-formatted report content to display", true)
@@ -726,8 +735,15 @@ mcp::json DltMcpServer::search(const mcp::json& params,
                        entry.apid, entry.level});
   }
 
+  std::string regex_warning;
+  if (has_keyword && matches.empty() && looksLikeRegex(keyword.toStdString())) {
+    regex_warning =
+        "Keyword contains regex-like characters but only literal "
+        "substring matching is supported";
+  }
+
   if (count_only) {
-    return makeTextResult(std::to_string(matches.size()));
+    return makeTextResult(std::to_string(matches.size()), regex_warning);
   }
 
   // Format output.
@@ -763,7 +779,7 @@ mcp::json DltMcpServer::search(const mcp::json& params,
     }
   }
 
-  return makeTextResult(oss.str());
+  return makeTextResult(oss.str(), regex_warning);
 }
 
 mcp::json DltMcpServer::get_messages(const mcp::json& params,

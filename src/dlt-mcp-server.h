@@ -175,7 +175,10 @@ class DltMcpServer : public QObject,
                                        int64_t relSec, int64_t relUsec,
                                        int64_t ecuSec, int64_t ecuMmm);
 
-  static mcp::json makeTextResult(const std::string& text);
+  static mcp::json makeTextResult(const std::string& text,
+                                  const std::string& warning = "");
+
+  static bool looksLikeRegex(const std::string& s);
 
   void initMcpServer();
   void registerMcpTools();

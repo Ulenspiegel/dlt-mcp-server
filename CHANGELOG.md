@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `search` tool warns when keyword contains regex-like characters and the result set is empty.
 - Persistent disk cache for reports in JSON format (stored in Qt cache location).
 - `set_report` MCP tool to display Markdown reports in the plugin widget.
 - Report tab with clickable `[text](jump://msg/<id>)` links that jump DLT Viewer to specific messages.
