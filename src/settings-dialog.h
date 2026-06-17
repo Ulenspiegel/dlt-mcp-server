@@ -11,10 +11,11 @@
 
 #include <QDialog>
 
-class QSpinBox;
+class QLabel;
 class QLineEdit;
 class QPushButton;
 class QSettings;
+class QSpinBox;
 
 class SettingsDialog : public QDialog {
   Q_OBJECT
@@ -29,12 +30,15 @@ class SettingsDialog : public QDialog {
  private:
   void loadSettings();
   void saveSettings();
+  void validateContextFile();
 
   QSettings* settings_;
   QSpinBox* portSpin_;
+  QLabel* portHintLabel_;
   QLineEdit* contextFileEdit_;
   QPushButton* browseBtn_;
   QPushButton* resetBtn_;
+  QLabel* contextWarningLabel_;
 };
 
 #endif  // SETTINGS_DIALOG_H

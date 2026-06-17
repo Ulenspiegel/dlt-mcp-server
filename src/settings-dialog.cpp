@@ -12,35 +12,49 @@
 #include <QDialogButtonBox>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSettings>
 #include <QSpinBox>
 #include <QStandardPaths>
+#include <filesystem>
 
 #include "config.h"
+
+namespace {
+constexpr const char* kHintStyle =
+    "color: #757575; font-size: 11px; font-style: italic;";
+constexpr const char* kWarningStyle =
+    "color: #f44336; font-size: 11px; font-style: italic;";
+}  // namespace
 
 SettingsDialog::SettingsDialog(QSettings* settings, QWidget* parent)
     : QDialog(parent), settings_(settings) {
   setWindowTitle("MCP Server Settings");
   setModal(true);
-  setMinimumWidth(480);
+  setMinimumWidth(520);
 
+  // Port widgets
   portSpin_ = new QSpinBox(this);
   portSpin_->setRange(1, 65535);
 
-  auto* restartHintLabel = new QLabel(this);
-  restartHintLabel->setText("\u26a0");
-  restartHintLabel->setStyleSheet("color: #fbbf00; font-size: 18px;");
-  restartHintLabel->setToolTip("Changing port requires server restart");
+  portHintLabel_ = new QLabel(this);
+  portHintLabel_->setText("Requires DLT Viewer restart to take effect");
+  portHintLabel_->setStyleSheet(kHintStyle);
 
-  auto* portLayout = new QHBoxLayout();
-  portLayout->addWidget(portSpin_);
-  portLayout->addSpacing(4);
-  portLayout->addWidget(restartHintLabel);
-  portLayout->addStretch();
+  auto* portContent = new QVBoxLayout();
+  portContent->setSpacing(2);
+  {
+    auto* hLayout = new QHBoxLayout();
+    hLayout->addWidget(portSpin_);
+    hLayout->addStretch();
+    portContent->addLayout(hLayout);
+    portContent->addWidget(portHintLabel_);
+  }
 
+  // Context file widgets
   contextFileEdit_ = new QLineEdit(this);
   contextFileEdit_->setReadOnly(true);
   contextFileEdit_->setPlaceholderText("No context file selected");
@@ -48,21 +62,37 @@ SettingsDialog::SettingsDialog(QSettings* settings, QWidget* parent)
   browseBtn_ = new QPushButton("Browse...", this);
   resetBtn_ = new QPushButton("Reset", this);
 
-  auto* browseLayout = new QHBoxLayout();
-  browseLayout->addWidget(contextFileEdit_);
-  browseLayout->addWidget(browseBtn_);
-  browseLayout->addWidget(resetBtn_);
+  contextWarningLabel_ = new QLabel(this);
+  contextWarningLabel_->setText("\u26a0 File does not exist");
+  contextWarningLabel_->setStyleSheet(kWarningStyle);
+  contextWarningLabel_->setVisible(false);
 
-  auto* formLayout = new QFormLayout();
-  formLayout->addRow("Server Port:", portLayout);
-  formLayout->addRow("Context File:", browseLayout);
-  formLayout->setSpacing(8);
+  auto* contextContent = new QVBoxLayout();
+  contextContent->setSpacing(2);
+  {
+    auto* hLayout = new QHBoxLayout();
+    hLayout->addWidget(contextFileEdit_, 1);
+    hLayout->addWidget(browseBtn_);
+    hLayout->addWidget(resetBtn_);
+    contextContent->addLayout(hLayout);
+    contextContent->addWidget(contextWarningLabel_);
+  }
 
+  // Server group box
+  auto* serverGroup = new QGroupBox("Server", this);
+  auto* serverForm = new QFormLayout();
+  serverForm->addRow("Port:", portContent);
+  serverForm->addRow("Context file:", contextContent);
+  serverForm->setSpacing(12);
+  serverGroup->setLayout(serverForm);
+
+  // Button box
   auto* buttonBox = new QDialogButtonBox(
       QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
 
+  // Main layout
   auto* mainLayout = new QVBoxLayout(this);
-  mainLayout->addLayout(formLayout);
+  mainLayout->addWidget(serverGroup);
   mainLayout->addStretch();
   mainLayout->addWidget(buttonBox);
 
@@ -74,11 +104,14 @@ SettingsDialog::SettingsDialog(QSettings* settings, QWidget* parent)
                                      "Text Files (*.txt *.md);;All Files (*)");
     if (!filePath.isEmpty()) {
       contextFileEdit_->setText(filePath);
+      validateContextFile();
     }
   });
 
-  connect(resetBtn_, &QPushButton::clicked,
-          [this]() { contextFileEdit_->clear(); });
+  connect(resetBtn_, &QPushButton::clicked, [this]() {
+    contextFileEdit_->clear();
+    validateContextFile();
+  });
 
   connect(buttonBox, &QDialogButtonBox::accepted, this, [this]() {
     saveSettings();
@@ -88,6 +121,7 @@ SettingsDialog::SettingsDialog(QSettings* settings, QWidget* parent)
   connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
   loadSettings();
+  validateContextFile();
 }
 
 int SettingsDialog::getPort() const { return portSpin_->value(); }
@@ -111,5 +145,22 @@ void SettingsDialog::saveSettings() {
     settings_->remove(ContextFileKey);
   } else {
     settings_->setValue(ContextFileKey, ctxFile);
+  }
+}
+
+void SettingsDialog::validateContextFile() {
+  QString filePath = contextFileEdit_->text().trimmed();
+  if (filePath.isEmpty()) {
+    contextWarningLabel_->setVisible(false);
+    return;
+  }
+
+  std::error_code ec;
+  auto path = filePath.toStdString();
+  auto stat = std::filesystem::status(path, ec);
+  if (ec || stat.type() != std::filesystem::file_type::regular) {
+    contextWarningLabel_->setVisible(true);
+  } else {
+    contextWarningLabel_->setVisible(false);
   }
 }
