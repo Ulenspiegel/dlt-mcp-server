@@ -20,22 +20,22 @@ FetchContent_MakeAvailable(fmt)
 add_library(fmt::fmt ALIAS fmt)
 
 # Derive version from git tags; fall back to 0.0.0 if no tags or git unavailable.
-if(GIT_FOUND)
+if (GIT_FOUND)
     execute_process(
-        COMMAND ${GIT_EXECUTABLE} describe --tags --always --match "v*"
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        OUTPUT_VARIABLE PLUGIN_VERSION
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        RESULT_VARIABLE GIT_DESCRIBE_RESULT
+            COMMAND ${GIT_EXECUTABLE} describe --tags --always --match "v*"
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            OUTPUT_VARIABLE PLUGIN_VERSION
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            RESULT_VARIABLE GIT_DESCRIBE_RESULT
     )
-    if(NOT GIT_DESCRIBE_RESULT EQUAL 0)
+    if (NOT GIT_DESCRIBE_RESULT EQUAL 0)
         set(PLUGIN_VERSION "0.0.0")
-    else()
+    else ()
         string(REGEX REPLACE "^v" "" PLUGIN_VERSION "${PLUGIN_VERSION}")
-    endif()
-else()
+    endif ()
+else ()
     set(PLUGIN_VERSION "0.0.0")
-endif()
+endif ()
 
 FetchContent_Declare(
         cpp-mcp
@@ -77,14 +77,14 @@ target_link_libraries(dlt-mcp-server ${QT_PREFIX}::Widgets Boost::headers mcp::m
 add_plugin(dlt-mcp-server)
 
 find_program(CLANG_FORMAT NAMES clang-format clang-format-14)
-if(CLANG_FORMAT)
+if (CLANG_FORMAT)
     file(GLOB FORMAT_SOURCES src/*.cpp src/*.h)
     add_custom_target(mcp-format
-        COMMAND ${CLANG_FORMAT} -i -style=file ${FORMAT_SOURCES}
-        COMMENT "Formatting with clang-format"
-        VERBATIM)
+            COMMAND ${CLANG_FORMAT} -i -style=file ${FORMAT_SOURCES}
+            COMMENT "Formatting with clang-format"
+            VERBATIM)
     add_custom_target(mcp-format-check
-        COMMAND ${CLANG_FORMAT} --dry-run --Werror -style=file ${FORMAT_SOURCES}
-        COMMENT "Checking formatting"
-        VERBATIM)
-endif()
+            COMMAND ${CLANG_FORMAT} --dry-run --Werror -style=file ${FORMAT_SOURCES}
+            COMMENT "Checking formatting"
+            VERBATIM)
+endif ()
