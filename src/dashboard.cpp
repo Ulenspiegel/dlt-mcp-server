@@ -9,6 +9,7 @@
 #include "dashboard.h"
 
 #include <md4c-html.h>
+#include <spdlog/spdlog.h>
 
 #include <QApplication>
 #include <QClipboard>
@@ -25,6 +26,8 @@
 #include <string>
 
 #include "dlt-mcp-server.h"
+
+namespace spd = spdlog;
 
 static std::string markdownToHtml(const std::string& markdown) {
   std::string html;
@@ -192,7 +195,7 @@ void Dashboard::onAnchorClicked(const QUrl& url) {
   if (!ok || index < 0) {
     return;
   }
-  qCDebug(logDltMcpServer) << "jump to message" << index;
+  spd::debug("jump to message {}", index);
   jumpToMessage(index);
 }
 

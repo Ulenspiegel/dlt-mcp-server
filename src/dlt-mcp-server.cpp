@@ -9,16 +9,13 @@
 #include "dlt-mcp-server.h"
 
 #include <mcp_message.h>
+#include <spdlog/spdlog.h>
 
 #include <QStandardPaths>
 
 #include "settings-dialog.h"
 #include "utility/message.h"
 #include "utility/time.h"
-
-Q_LOGGING_CATEGORY(logDltMcpServer, "dlt.mcp.server", QtDebugMsg)
-
-#include <fmt/format.h>
 
 #include <cctype>
 #include <climits>
@@ -28,6 +25,8 @@ Q_LOGGING_CATEGORY(logDltMcpServer, "dlt.mcp.server", QtDebugMsg)
 #include <map>
 #include <set>
 #include <sstream>
+
+namespace spd = spdlog;
 
 DltMcpServer::DltMcpServer() {
   settings_ =

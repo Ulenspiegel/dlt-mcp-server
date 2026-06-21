@@ -8,8 +8,16 @@
 include(FetchContent)
 
 find_package(Boost 1.74 REQUIRED)
-find_package(fmt REQUIRED)
 find_package(Git QUIET)
+
+set(FMT_HEADER_ONLY ON CACHE BOOL "" FORCE)
+FetchContent_Declare(
+        fmt
+        GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+        GIT_TAG 12.2.0
+)
+FetchContent_MakeAvailable(fmt)
+add_library(fmt::fmt ALIAS fmt)
 
 # Derive version from git tags; fall back to 0.0.0 if no tags or git unavailable.
 if(GIT_FOUND)
@@ -48,11 +56,23 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 FetchContent_MakeAvailable(md4c)
 add_library(md4c::md4c-html ALIAS md4c-html)
 
+set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "" FORCE)
+set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
+set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(SPDLOG_BUILD_TESTS_HARMFUL OFF CACHE BOOL "" FORCE)
+set(SPDLOG_HEADER_ONLY ON CACHE BOOL "" FORCE)
+FetchContent_Declare(
+        spdlog
+        GIT_REPOSITORY https://github.com/gabime/spdlog.git
+        GIT_TAG v1.15.3
+)
+FetchContent_MakeAvailable(spdlog)
+
 add_library(dlt-mcp-server MODULE src/dlt-mcp-server.cpp src/dashboard.cpp src/report-cache.cpp src/settings-dialog.cpp)
 
 target_compile_definitions(dlt-mcp-server PRIVATE DLT_VIEWER_PLUGIN_VERSION="${PLUGIN_VERSION}")
 
-target_link_libraries(dlt-mcp-server ${QT_PREFIX}::Widgets Boost::headers mcp::mcp fmt::fmt md4c::md4c-html)
+target_link_libraries(dlt-mcp-server ${QT_PREFIX}::Widgets Boost::headers mcp::mcp fmt::fmt md4c::md4c-html spdlog::spdlog_header_only)
 
 add_plugin(dlt-mcp-server)
 

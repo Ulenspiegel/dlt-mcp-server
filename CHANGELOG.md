@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Settings dialog redesigned with grouped layout, inline hints, and file existence validation.
+- Replaced Qt logging with spdlog for better syntax and output format.
+- Replaced dependency on system libfmt with FetchContent.
 
 ### Fixed
 - Report from a previously loaded log file is now cleared when loading a new one.
