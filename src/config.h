@@ -11,7 +11,7 @@
 
 #include <QLoggingCategory>
 
-inline constexpr int DefaultPort = 8888;
+inline constexpr int DefaultPort = 9500;
 inline constexpr const char* PortKey = "server_port";
 inline constexpr const char* ContextFileKey = "context_file_path";
 
