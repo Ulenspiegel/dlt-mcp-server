@@ -22,4 +22,12 @@ inline std::string cleanPayload(const std::string& payload) {
   return result;
 }
 
+inline std::string payloadPreview(const std::string& payload,
+                                  size_t maxLen = 100) {
+  if (payload.size() > maxLen) {
+    return payload.substr(0, maxLen) + "~";
+  }
+  return payload;
+}
+
 #endif  // DLT_MCP_SERVER_UTILITY_STRING_H_

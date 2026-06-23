@@ -603,44 +603,39 @@ mcp::json DltMcpServer::search(const mcp::json& params,
 
   spd::debug("Query: {}", query);
 
-  // Search and format/count in a single pass.
   int matches_count = 0;
   int matches_skipped = 0;
   int matches_collected = 0;
   std::string regex_warning;
-  std::ostringstream oss;
+  std::ostringstream result;
   int64_t first_ts = index_->firstTimestamp();
 
-  index_->search(query, [&](const Message& m) {
+  index_->search(query, [&](const Message& message) {
     if (matches_skipped < offset) {
       matches_skipped++;
       return true;
     }
     if (!count_only && matches_collected >= limit) {
-      return false;  // stop iteration
+      return false;
     }
 
     if (count_only) {
       matches_count++;
     } else {
       if (matches_collected > 0) {
-        oss << "\n";
+        result << "\n";
       }
-      int64_t offset_ns = m.timestamp - first_ts;
+      int64_t offset_ns = message.timestamp - first_ts;
       auto [hours, minutes, seconds, millis] = splitRelativeTime(offset_ns);
       auto [rel_sec, rel_usec] = splitRelativeTimestamp(offset_ns);
-      auto [ecu_sec, ecu_mmm] = splitEcuTime(m.ecu_time);
+      auto [ecu_sec, ecu_mmm] = splitEcuTime(message.ecu_time);
 
-      oss << formatMessageLine(hours, minutes, seconds, millis,
-                               getLevelChar(m.log_level), m.ctid, m.apid,
-                               m.index, rel_sec, rel_usec, ecu_sec, ecu_mmm);
+      result << formatMessageLine(hours, minutes, seconds, millis,
+                                  getLevelChar(message.log_level), message.ctid,
+                                  message.apid, message.index, rel_sec,
+                                  rel_usec, ecu_sec, ecu_mmm);
 
-      std::string cleaned = cleanPayload(m.payload);
-      if (static_cast<int>(cleaned.size()) > 100) {
-        oss << cleaned.substr(0, 100) << "~";
-      } else {
-        oss << cleaned;
-      }
+      result << payloadPreview(cleanPayload(message.payload));
       matches_collected++;
     }
     return true;
@@ -658,7 +653,7 @@ mcp::json DltMcpServer::search(const mcp::json& params,
     return makeTextResult(std::to_string(matches_count), regex_warning);
   }
 
-  return makeTextResult(oss.str(), regex_warning);
+  return makeTextResult(result.str(), regex_warning);
 }
 
 mcp::json DltMcpServer::get_messages(const mcp::json& params,
