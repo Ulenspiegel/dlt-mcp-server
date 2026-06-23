@@ -19,6 +19,7 @@
 #include <fstream>
 #include <sstream>
 
+#include "basic_index.h"
 #include "settings-dialog.h"
 #include "statistics.h"
 #include "utility/message.h"
@@ -35,6 +36,7 @@ DltMcpServer::DltMcpServer() {
   std::filesystem::path cachePath(cacheDir.toStdString());
   cachePath /= "dlt-mcp-server/reports.json";
   reportCache_ = std::make_unique<ReportCache>(cachePath.string());
+  index_ = std::make_unique<BasicIndex>(*this);
   initMcpServer();
   registerMcpTools();
   server_->start(false);
@@ -164,13 +166,7 @@ bool DltMcpServer::decodeMsg(QDltMsg& /*msg*/, int /*triggeredByUser*/) {
 
 void DltMcpServer::reset() {
   selected_index_ = -1;
-  apids_.clear();
-  ctids_.clear();
-  ctid_map_.clear();
-  apid_map_.clear();
-  ecuids_.clear();
-  ecuid_map_.clear();
-  index_.clear();
+  index_->reset();
   statistics_.reset();
   file_ranges_.clear();
 }
@@ -197,46 +193,19 @@ void DltMcpServer::onMessageReceived(int index, const QDltMsg& msg) {
   if (msg.getType() != QDltMsg::DltTypeLog) {
     return;
   }
-  indexMessage(index, msg);
+  index_->add(index, msg);
   statistics_.update(msg);
 }
 
-void DltMcpServer::indexMessage(int index, const QDltMsg& msg) {
-  const auto timestamp = getWallClockNs(msg);
-  const auto ecu_time = getEcuTimeTicks(msg);
-  const auto ctid = msg.getCtid().toStdString();
-  const auto apid = msg.getApid().toStdString();
-  const auto ecuid = msg.getEcuid().toStdString();
-  const auto level = msg.getSubtype();
-  index_.insert({index, timestamp, ecu_time, getCtidIndex(ctid),
-                 getApidIndex(apid), getEcuidIndex(ecuid), level});
-}
-
-size_t DltMcpServer::getCtidIndex(const std::string& ctid) {
-  if (const auto it = ctid_map_.find(ctid); it != ctid_map_.end()) {
-    return it->second;
+std::optional<QDltMsg> DltMcpServer::get(int index) const {
+  if (!dlt_file_) {
+    return std::nullopt;
   }
-  ctid_map_[ctid] = ctids_.size();
-  ctids_.push_back(ctid);
-  return ctids_.size() - 1;
-}
-
-size_t DltMcpServer::getApidIndex(const std::string& apid) {
-  if (const auto it = apid_map_.find(apid); it != apid_map_.end()) {
-    return it->second;
+  QDltMsg msg;
+  if (dlt_file_->getMsg(index, msg)) {
+    return msg;
   }
-  apid_map_[apid] = apids_.size();
-  apids_.push_back(apid);
-  return apids_.size() - 1;
-}
-
-size_t DltMcpServer::getEcuidIndex(const std::string& ecuid) {
-  if (const auto it = ecuid_map_.find(ecuid); it != ecuid_map_.end()) {
-    return it->second;
-  }
-  ecuid_map_[ecuid] = ecuids_.size();
-  ecuids_.push_back(ecuid);
-  return ecuids_.size() - 1;
+  return std::nullopt;
 }
 
 char DltMcpServer::getLevelChar(int level) {
@@ -246,10 +215,6 @@ char DltMcpServer::getLevelChar(int level) {
         std::toupper(static_cast<unsigned char>(it->second[0])));
   }
   return '?';
-}
-
-int64_t DltMcpServer::getBaseTimestamp() {
-  return index_.get<0>().begin()->timestamp;
 }
 
 void DltMcpServer::computeFileRanges() {
@@ -442,14 +407,13 @@ mcp::json DltMcpServer::get_log_summary(const mcp::json& /*params*/,
     throw mcp::mcp_exception(mcp::error_code::internal_error,
                              "DLT file is empty");
   }
-  int64_t base_ts = getBaseTimestamp();
-  auto& index = index_.get<0>();
-  int64_t last_ts = std::prev(index.end())->timestamp;
-  double duration_sec = (last_ts - base_ts) / 1'000'000'000.0;
+  int64_t first_ts = index_->firstTimestamp();
+  int64_t last_ts = index_->lastTimestamp();
+  double duration_sec = (last_ts - first_ts) / 1'000'000'000.0;
 
   // Wall-clock start time for context.
   QDltMsg first_msg;
-  dlt_file_->getMsg(index.begin()->index, first_msg);
+  dlt_file_->getMsg(0, first_msg);
   std::string log_start = fmt::format(
       "{}.{:06}", first_msg.getGmTimeWithOffsetString(0, false).toStdString(),
       first_msg.getMicroseconds());
@@ -533,17 +497,17 @@ mcp::json DltMcpServer::search(const mcp::json& params,
   }
 
   // Extract tool parameters.
-  std::string ctid_str;
+  std::string ctid;
   bool has_ctid = false;
   if (params.contains("ctid")) {
-    ctid_str = params["ctid"].get<std::string>();
+    ctid = params["ctid"].get<std::string>();
     has_ctid = true;
   }
 
-  std::string apid_str;
+  std::string apid;
   bool has_apid = false;
   if (params.contains("apid")) {
-    apid_str = params["apid"].get<std::string>();
+    apid = params["apid"].get<std::string>();
     has_apid = true;
   }
 
@@ -577,12 +541,16 @@ mcp::json DltMcpServer::search(const mcp::json& params,
   double max_timestamp_sec =
       has_max_ts ? params["max_timestamp"].get<double>() : 0;
 
-  QString keyword;
-  bool has_keyword = false;
-  if (params.contains("keyword")) {
-    keyword = QString::fromStdString(params["keyword"].get<std::string>());
-    has_keyword = true;
+  if (has_min_ts && has_max_ts && min_timestamp_sec > max_timestamp_sec) {
+    throw mcp::mcp_exception(
+        mcp::error_code::invalid_params,
+        fmt::format("min_timestamp ({}) > max_timestamp ({})",
+                    min_timestamp_sec, max_timestamp_sec));
   }
+
+  bool has_keyword = params.contains("keyword");
+  std::string keyword =
+      has_keyword ? params["keyword"].get<std::string>() : std::string();
 
   bool case_insensitive = params.contains("case_insensitive")
                               ? params["case_insensitive"].get<bool>()
@@ -604,128 +572,87 @@ mcp::json DltMcpServer::search(const mcp::json& params,
     offset = 0;
   }
 
-  // Resolve CTID/APID string filters to numeric indices.
-  size_t ctid_idx = 0;
-  size_t apid_idx = 0;
+  Query query;
   if (has_ctid) {
-    auto it = ctid_map_.find(ctid_str);
-    if (it == ctid_map_.end()) {
-      // Unknown CTID - return an empty string.
-      return makeTextResult("");
-    }
-    ctid_idx = it->second;
+    query.ctid = ctid;
   }
   if (has_apid) {
-    auto it = apid_map_.find(apid_str);
-    if (it == apid_map_.end()) {
-      // Unknown APID - return an empty string.
-      return makeTextResult("");
-    }
-    apid_idx = it->second;
+    query.apid = apid;
+  }
+  if (has_min_level) {
+    query.min_level = min_log_level;
+  }
+  if (has_max_level) {
+    query.max_level = max_log_level;
+  }
+  if (has_min_ts) {
+    int64_t first_ts = index_->firstTimestamp();
+    query.min_timestamp =
+        first_ts + static_cast<int64_t>(min_timestamp_sec * 1'000'000'000.0);
+  }
+  if (has_max_ts) {
+    int64_t first_ts = index_->firstTimestamp();
+    query.max_timestamp =
+        first_ts + static_cast<int64_t>(max_timestamp_sec * 1'000'000'000.0);
+  }
+  if (has_keyword) {
+    query.keyword = keyword;
+    query.case_insensitive = case_insensitive;
   }
 
-  // Determine timestamp range in index.
-  int64_t base_ts = getBaseTimestamp();
-  auto& index = index_.get<0>();
-  int64_t min_ts_ns =
-      base_ts + static_cast<int64_t>(min_timestamp_sec * 1'000'000'000.0);
-  int64_t max_ts_ns =
-      base_ts + static_cast<int64_t>(max_timestamp_sec * 1'000'000'000.0);
-  auto it_lower = has_min_ts ? index.lower_bound(min_ts_ns) : index.begin();
-  auto it_upper = has_max_ts ? index.upper_bound(max_ts_ns) : index.end();
-
-  // Collect results.
-  struct SearchResult {
-    int msg_index;
-    int64_t timestamp;
-    int64_t ecu_time;
-    size_t ctid;
-    size_t apid;
-    int level;
-  };
-
-  std::vector<SearchResult> matches;
-
-  int max_collect = count_only ? INT_MAX : limit + offset;
-  for (auto it = it_lower;
-       it != it_upper && static_cast<int>(matches.size()) < max_collect; ++it) {
-    const auto& entry = *it;
-
-    // CTID filter
-    if (has_ctid && entry.ctid != ctid_idx) {
-      continue;
-    }
-
-    // APID filter
-    if (has_apid && entry.apid != apid_idx) {
-      continue;
-    }
-
-    // Log level range filter (numeric bounds on DLT level value)
-    if (has_min_level && entry.level < min_log_level) {
-      continue;
-    }
-    if (has_max_level && entry.level > max_log_level) {
-      continue;
-    }
-
-    // Keyword filter - requires fetching the message, consider caching in
-    // memory.
-    if (has_keyword) {
-      QDltMsg msg;
-      if (!dlt_file_->getMsg(entry.index, msg)) continue;
-      QString payload = msg.toStringPayload();
-      Qt::CaseSensitivity cs =
-          case_insensitive ? Qt::CaseInsensitive : Qt::CaseSensitive;
-      if (payload.indexOf(keyword, cs) == -1) continue;
-    }
-
-    matches.push_back({entry.index, entry.timestamp, entry.ecu_time, entry.ctid,
-                       entry.apid, entry.level});
-  }
-
+  // Search and format/count in a single pass.
+  int matches_count = 0;
+  int matches_skipped = 0;
+  int matches_collected = 0;
   std::string regex_warning;
-  if (has_keyword && matches.empty() && looksLikeRegex(keyword.toStdString())) {
+  std::ostringstream oss;
+  int64_t first_ts = index_->firstTimestamp();
+
+  index_->search(query, [&](const Message& m) {
+    if (matches_skipped < offset) {
+      matches_skipped++;
+      return true;
+    }
+    if (!count_only && matches_collected >= limit) {
+      return false;  // stop iteration
+    }
+
+    if (count_only) {
+      matches_count++;
+    } else {
+      if (matches_collected > 0) {
+        oss << "\n";
+      }
+      int64_t offset_ns = m.timestamp - first_ts;
+      auto [hours, minutes, seconds, millis] = splitRelativeTime(offset_ns);
+      auto [rel_sec, rel_usec] = splitRelativeTimestamp(offset_ns);
+      auto [ecu_sec, ecu_mmm] = splitEcuTime(m.ecu_time);
+
+      oss << formatMessageLine(hours, minutes, seconds, millis,
+                               getLevelChar(m.log_level), m.ctid, m.apid,
+                               m.index, rel_sec, rel_usec, ecu_sec, ecu_mmm);
+
+      std::string cleaned = cleanPayload(m.payload);
+      if (static_cast<int>(cleaned.size()) > 100) {
+        oss << cleaned.substr(0, 100) << "~";
+      } else {
+        oss << cleaned;
+      }
+      matches_collected++;
+    }
+    return true;
+  });
+
+  int total_count =
+      count_only ? matches_count : matches_collected + matches_skipped;
+  if (has_keyword && total_count == 0 && looksLikeRegex(keyword)) {
     regex_warning =
         "Keyword contains regex-like characters but only literal "
         "substring matching is supported";
   }
 
   if (count_only) {
-    return makeTextResult(std::to_string(matches.size()), regex_warning);
-  }
-
-  // Format output.
-  std::ostringstream oss;
-
-  for (int i = offset; i < static_cast<int>(matches.size()); i++) {
-    const auto& m = matches[i];
-
-    // Fetch full payload.
-    QDltMsg msg;
-    if (!dlt_file_->getMsg(m.msg_index, msg)) continue;
-    std::string payload = msg.toStringPayload().toStdString();
-
-    int64_t offset_ns = m.timestamp - base_ts;
-    auto [hours, minutes, seconds, millis] = splitRelativeTime(offset_ns);
-    auto [rel_sec, rel_usec] = splitRelativeTimestamp(offset_ns);
-    auto [ecu_sec, ecu_mmm] = splitEcuTime(m.ecu_time);
-
-    oss << formatMessageLine(
-        hours, minutes, seconds, millis, getLevelChar(m.level), ctids_[m.ctid],
-        apids_[m.apid], m.msg_index, rel_sec, rel_usec, ecu_sec, ecu_mmm);
-
-    // Payload with truncation at 100 chars.
-    std::string cleaned = cleanPayload(payload);
-    if (static_cast<int>(cleaned.size()) > 100) {
-      oss << cleaned.substr(0, 100) << "~";
-    } else {
-      oss << cleaned;
-    }
-
-    if (i < static_cast<int>(matches.size()) - 1) {
-      oss << "\n";
-    }
+    return makeTextResult(std::to_string(matches_count), regex_warning);
   }
 
   return makeTextResult(oss.str(), regex_warning);
@@ -755,7 +682,7 @@ mcp::json DltMcpServer::get_messages(const mcp::json& params,
   }
 
   // Get base timestamp for relative time.
-  int64_t base_ts = getBaseTimestamp();
+  int64_t base_ts = index_->firstTimestamp();
 
   std::ostringstream oss;
   size_t count = 0;
@@ -821,7 +748,7 @@ mcp::json DltMcpServer::get_selection(const mcp::json& /*params*/,
   int64_t timestamp = getWallClockNs(msg);
   int64_t ecu_time = getEcuTimeTicks(msg);
 
-  int64_t base_ts = getBaseTimestamp();
+  int64_t base_ts = index_->firstTimestamp();
   int64_t offset_ns = timestamp - base_ts;
   auto [hours, minutes, seconds, millis] = splitRelativeTime(offset_ns);
   auto [rel_sec, rel_usec] = splitRelativeTimestamp(offset_ns);

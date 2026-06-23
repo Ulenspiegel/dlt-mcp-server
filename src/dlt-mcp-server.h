@@ -14,13 +14,10 @@
 
 #include <QObject>
 #include <QSettings>
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index_container.hpp>
-#include <tuple>
-#include <unordered_map>
+#include <memory>
 
 #include "dashboard.h"
+#include "index.h"
 #include "plugininterface.h"
 #include "report-cache.h"
 #include "statistics.h"
@@ -29,13 +26,12 @@
 #define DLT_VIEWER_PLUGIN_VERSION "0.0.0"
 #endif
 
-namespace bmi = boost::multi_index;
-
 class DltMcpServer : public QObject,
                      QDLTPluginInterface,
                      QDltPluginViewerInterface,
                      QDLTPluginDecoderInterface,
-                     QDltPluginControlInterface {
+                     QDltPluginControlInterface,
+                     public MessageSource {
   Q_OBJECT
   Q_INTERFACES(QDLTPluginInterface)
   Q_INTERFACES(QDltPluginViewerInterface)
@@ -99,24 +95,6 @@ class DltMcpServer : public QObject,
   Dashboard* dashboard_;
 
  private:
-  struct IndexEntry {
-    int index;
-    int64_t timestamp;
-    int64_t ecu_time;
-    size_t ctid;
-    size_t apid;
-    size_t ecuid;
-    int level;
-  };
-
-  struct by_timestamp {};
-
-  using Index = bmi::multi_index_container<
-      IndexEntry,
-      bmi::indexed_by<bmi::ordered_non_unique<
-          bmi::tag<by_timestamp>,
-          bmi::member<IndexEntry, int64_t, &IndexEntry::timestamp>>>>;
-
   struct LogFileInfo {
     std::string name;
     int message_count;
@@ -125,15 +103,10 @@ class DltMcpServer : public QObject,
 
   void reset();
   void onMessageReceived(int index, const QDltMsg& msg);
-  void indexMessage(int index, const QDltMsg& msg);
 
-  size_t getCtidIndex(const std::string& ctid);
-  size_t getApidIndex(const std::string& apid);
-  size_t getEcuidIndex(const std::string& ecuid);
+  std::optional<QDltMsg> get(int index) const override;
 
   char getLevelChar(int level);
-
-  int64_t getBaseTimestamp();
 
   void computeFileRanges();
   void liveUpdateLastFileMessageCount();
@@ -169,14 +142,7 @@ class DltMcpServer : public QObject,
   QDltControl* control_{nullptr};
   int selected_index_{-1};
 
-  std::unordered_map<std::string, size_t> apid_map_;
-  std::unordered_map<std::string, size_t> ctid_map_;
-  std::unordered_map<std::string, size_t> ecuid_map_;
-  std::vector<std::string> apids_;
-  std::vector<std::string> ctids_;
-  std::vector<std::string> ecuids_;
-
-  Index index_;
+  std::unique_ptr<Index> index_;
   Statistics statistics_;
 
   std::unique_ptr<mcp::server> server_;
