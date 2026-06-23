@@ -14,7 +14,6 @@
 
 #include <QObject>
 #include <QSettings>
-#include <boost/multi_index/composite_key.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index_container.hpp>
@@ -24,6 +23,7 @@
 #include "dashboard.h"
 #include "plugininterface.h"
 #include "report-cache.h"
+#include "statistics.h"
 
 #ifndef DLT_VIEWER_PLUGIN_VERSION
 #define DLT_VIEWER_PLUGIN_VERSION "0.0.0"
@@ -117,37 +117,21 @@ class DltMcpServer : public QObject,
           bmi::tag<by_timestamp>,
           bmi::member<IndexEntry, int64_t, &IndexEntry::timestamp>>>>;
 
-  struct DistributionEntry {
-    size_t ctid{};
-    size_t apid{};
-    size_t total{};
-    std::map<int, size_t> levels;  // <Log level, number of messages.>
-  };
-
   struct LogFileInfo {
     std::string name;
     int message_count;
     int start_index;
   };
 
-  using Distribution = bmi::multi_index_container<
-      DistributionEntry,
-      bmi::indexed_by<bmi::ordered_unique<bmi::composite_key<
-          DistributionEntry,
-          bmi::member<DistributionEntry, size_t, &DistributionEntry::ctid>,
-          bmi::member<DistributionEntry, size_t, &DistributionEntry::apid>>>>>;
-
   void reset();
   void onMessageReceived(int index, const QDltMsg& msg);
   void indexMessage(int index, const QDltMsg& msg);
-  void updateStats(const QDltMsg& msg);
 
   size_t getCtidIndex(const std::string& ctid);
   size_t getApidIndex(const std::string& apid);
   size_t getEcuidIndex(const std::string& ecuid);
 
   char getLevelChar(int level);
-  static std::string cleanPayload(const std::string& payload);
 
   int64_t getBaseTimestamp();
 
@@ -192,10 +176,8 @@ class DltMcpServer : public QObject,
   std::vector<std::string> ctids_;
   std::vector<std::string> ecuids_;
 
-  std::map<int, std::string> log_levels_;
-
   Index index_;
-  Distribution distribution_;
+  Statistics statistics_;
 
   std::unique_ptr<mcp::server> server_;
   std::unique_ptr<QSettings> settings_;

@@ -9,9 +9,9 @@
 #ifndef DLT_MCP_SERVER_UTILITY_MESSAGE_H_
 #define DLT_MCP_SERVER_UTILITY_MESSAGE_H_
 
-#include <cstdint>
-
 #include <qdltmsg.h>
+
+#include <cstdint>
 
 // Extracts wall-clock timestamp in nanoseconds from a DLT message.
 inline int64_t getWallClockNs(const QDltMsg& msg) {

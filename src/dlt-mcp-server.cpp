@@ -12,19 +12,18 @@
 #include <spdlog/spdlog.h>
 
 #include <QStandardPaths>
-
-#include "settings-dialog.h"
-#include "utility/message.h"
-#include "utility/time.h"
-
 #include <cctype>
 #include <climits>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <map>
-#include <set>
 #include <sstream>
+
+#include "settings-dialog.h"
+#include "statistics.h"
+#include "utility/message.h"
+#include "utility/string.h"
+#include "utility/time.h"
 
 namespace spd = spdlog;
 
@@ -172,8 +171,7 @@ void DltMcpServer::reset() {
   ecuids_.clear();
   ecuid_map_.clear();
   index_.clear();
-  distribution_.clear();
-  log_levels_.clear();
+  statistics_.reset();
   file_ranges_.clear();
 }
 
@@ -200,7 +198,7 @@ void DltMcpServer::onMessageReceived(int index, const QDltMsg& msg) {
     return;
   }
   indexMessage(index, msg);
-  updateStats(msg);
+  statistics_.update(msg);
 }
 
 void DltMcpServer::indexMessage(int index, const QDltMsg& msg) {
@@ -212,23 +210,6 @@ void DltMcpServer::indexMessage(int index, const QDltMsg& msg) {
   const auto level = msg.getSubtype();
   index_.insert({index, timestamp, ecu_time, getCtidIndex(ctid),
                  getApidIndex(apid), getEcuidIndex(ecuid), level});
-}
-
-void DltMcpServer::updateStats(const QDltMsg& msg) {
-  const auto level = msg.getSubtype();
-  const auto ctid = getCtidIndex(msg.getCtid().toStdString());
-  const auto apid = getApidIndex(msg.getApid().toStdString());
-  log_levels_[level] = msg.getSubtypeString().toStdString();
-  auto& index = distribution_.get<0>();
-  auto [it, inserted] = index.insert({ctid, apid, 0, {}});
-  index.modify(it, [level](DistributionEntry& entry) {
-    entry.total++;
-    if (entry.levels.find(level) != entry.levels.end()) {
-      entry.levels[level]++;
-    } else {
-      entry.levels[level] = 1;
-    }
-  });
 }
 
 size_t DltMcpServer::getCtidIndex(const std::string& ctid) {
@@ -259,23 +240,12 @@ size_t DltMcpServer::getEcuidIndex(const std::string& ecuid) {
 }
 
 char DltMcpServer::getLevelChar(int level) {
-  auto it = log_levels_.find(level);
-  if (it != log_levels_.end()) {
+  auto it = statistics_.log_levels().find(level);
+  if (it != statistics_.log_levels().end()) {
     return static_cast<char>(
         std::toupper(static_cast<unsigned char>(it->second[0])));
   }
   return '?';
-}
-
-std::string DltMcpServer::cleanPayload(const std::string& payload) {
-  std::string result;
-  result.reserve(payload.size());
-  for (char c : payload) {
-    if (c != '\0' && c != '\n' && c != '\r') {
-      result += c;
-    }
-  }
-  return result;
 }
 
 int64_t DltMcpServer::getBaseTimestamp() {
@@ -485,7 +455,7 @@ mcp::json DltMcpServer::get_log_summary(const mcp::json& /*params*/,
       first_msg.getMicroseconds());
 
   mcp::json log_levels = mcp::json::array();
-  for (const auto& level : log_levels_) {
+  for (const auto& level : statistics_.log_levels()) {
     log_levels.push_back({{level.second, level.first}});
   }
   mcp::json summary = {{"message_count", dlt_file_->size()},
@@ -496,21 +466,13 @@ mcp::json DltMcpServer::get_log_summary(const mcp::json& /*params*/,
                        {"max_timestamp", duration_sec},
                        {"log_level_names", log_levels},
                        {"contexts", mcp::json::object()}};
-  auto& distribution_index = distribution_.get<0>();
-  std::map<size_t, std::set<size_t>> contexts;
-  for (const auto& distribution : distribution_index) {
-    if (contexts.find(distribution.ctid) == contexts.end()) {
-      contexts[distribution.ctid] = {};
-    }
-    contexts[distribution.ctid].insert(distribution.apid);
-  }
   auto& ctx_object = summary["contexts"];
-  for (const auto& [ctid, apid_list] : contexts) {
+  for (const auto& [ctid, ctx] : statistics_.contexts()) {
     auto apid_array = mcp::json::array();
-    for (const auto& apid : apid_list) {
-      apid_array.push_back(apids_[apid]);
+    for (const auto& apid : ctx.apids) {
+      apid_array.push_back(apid);
     }
-    ctx_object[ctids_[ctid]] = apid_array;
+    ctx_object[ctid] = apid_array;
   }
   std::string context = loadContextFile();
   if (!context.empty()) {
@@ -590,15 +552,22 @@ mcp::json DltMcpServer::search(const mcp::json& params,
   int min_log_level = has_min_level ? params["min_log_level"].get<int>() : 0;
   int max_log_level = has_max_level ? params["max_log_level"].get<int>() : 0;
 
-  if (has_min_level && log_levels_.find(min_log_level) == log_levels_.end()) {
+  // Validate log level range: must be in DLT range (0-15) and min <= max.
+  if (has_min_level && (min_log_level < 0 || min_log_level > 15)) {
     throw mcp::mcp_exception(
         mcp::error_code::invalid_params,
-        "Invalid min_log_level: " + std::to_string(min_log_level));
+        "min_log_level must be 0-15, got: " + std::to_string(min_log_level));
   }
-  if (has_max_level && log_levels_.find(max_log_level) == log_levels_.end()) {
+  if (has_max_level && (max_log_level < 0 || max_log_level > 15)) {
     throw mcp::mcp_exception(
         mcp::error_code::invalid_params,
-        "Invalid max_log_level: " + std::to_string(max_log_level));
+        "max_log_level must be 0-15, got: " + std::to_string(max_log_level));
+  }
+  if (has_min_level && has_max_level && min_log_level > max_log_level) {
+    throw mcp::mcp_exception(
+        mcp::error_code::invalid_params,
+        fmt::format("min_log_level ({}) > max_log_level ({})", min_log_level,
+                    max_log_level));
   }
 
   bool has_min_ts = params.contains("min_timestamp");

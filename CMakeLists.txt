@@ -68,7 +68,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(spdlog)
 
-add_library(dlt-mcp-server MODULE src/dlt-mcp-server.cpp src/dashboard.cpp src/report-cache.cpp src/settings-dialog.cpp)
+add_library(dlt-mcp-server MODULE src/dlt-mcp-server.cpp src/dashboard.cpp src/report-cache.cpp src/settings-dialog.cpp src/basic_index.cpp)
 
 target_compile_definitions(dlt-mcp-server PRIVATE DLT_VIEWER_PLUGIN_VERSION="${PLUGIN_VERSION}")
 
@@ -78,7 +78,7 @@ add_plugin(dlt-mcp-server)
 
 find_program(CLANG_FORMAT NAMES clang-format clang-format-14)
 if (CLANG_FORMAT)
-    file(GLOB FORMAT_SOURCES src/*.cpp src/*.h)
+    file(GLOB_RECURSE FORMAT_SOURCES src/*.cpp src/*.h)
     add_custom_target(mcp-format
             COMMAND ${CLANG_FORMAT} -i -style=file ${FORMAT_SOURCES}
             COMMENT "Formatting with clang-format"
