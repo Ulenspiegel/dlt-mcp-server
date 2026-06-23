@@ -70,6 +70,8 @@ FetchContent_MakeAvailable(spdlog)
 
 add_library(dlt-mcp-server MODULE src/dlt-mcp-server.cpp src/dashboard.cpp src/report-cache.cpp src/settings-dialog.cpp src/basic_index.cpp)
 
+target_include_directories(dlt-mcp-server PRIVATE src)
+
 target_compile_definitions(dlt-mcp-server PRIVATE DLT_VIEWER_PLUGIN_VERSION="${PLUGIN_VERSION}")
 
 target_link_libraries(dlt-mcp-server ${QT_PREFIX}::Widgets Boost::headers mcp::mcp fmt::fmt md4c::md4c-html spdlog::spdlog_header_only)

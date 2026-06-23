@@ -22,6 +22,7 @@
 #include "basic_index.h"
 #include "settings-dialog.h"
 #include "statistics.h"
+#include "utility/formatters.h"
 #include "utility/message.h"
 #include "utility/string.h"
 #include "utility/time.h"
@@ -599,6 +600,8 @@ mcp::json DltMcpServer::search(const mcp::json& params,
     query.keyword = keyword;
     query.case_insensitive = case_insensitive;
   }
+
+  spd::debug("Query: {}", query);
 
   // Search and format/count in a single pass.
   int matches_count = 0;
