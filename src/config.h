@@ -12,5 +12,7 @@
 inline constexpr int DefaultPort = 9500;
 inline constexpr const char* PortKey = "server_port";
 inline constexpr const char* ContextFileKey = "context_file_path";
+inline constexpr const char* BloomFilterSizeKey = "bloom_filter_size";
+inline constexpr int DefaultBloomFilterSize = 0;
 
 #endif  // CONFIG_H

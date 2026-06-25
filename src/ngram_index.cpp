@@ -1,0 +1,132 @@
+/* Copyright (C) 2026, Mikhail Nikonov <michael.n.nikonov@gmail.com>
+ *
+ * This Source Code Form is subject to the terms of the
+ * Mozilla Public License (MPL), v. 2.0.
+ * If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+#include "ngram_index.h"
+
+#include "utility/message.h"
+
+NgramIndex::NgramIndex(MessageSource& source, BloomFilter::Size filter_size)
+    : source_(source), filter_size_(filter_size) {
+  filter_ = std::make_unique<BloomFilter>(filter_size_);
+}
+
+void NgramIndex::reset() {
+  storage_.clear();
+  ctids_.clear();
+  apids_.clear();
+  ecuids_.clear();
+  filter_ = std::make_unique<BloomFilter>(filter_size_);
+}
+
+void NgramIndex::add(int index, const QDltMsg& msg) {
+  storage_.insert({index, getWallClockNs(msg), getEcuTimeTicks(msg),
+                   ctids_.insert(msg.getCtid().toStdString()),
+                   apids_.insert(msg.getApid().toStdString()),
+                   ecuids_.insert(msg.getEcuid().toStdString()),
+                   msg.getSubtype()});
+
+  if (filter_) {
+    auto payload = msg.toStringPayload().toUtf8();
+    filter_->add(index, std::string_view(payload.constData(), payload.size()));
+  }
+}
+
+std::optional<Message> NgramIndex::get(int index) {
+  auto& index_view = storage_.get<by_index>();
+  const auto it = index_view.find(index);
+  if (it == index_view.end()) {
+    return std::nullopt;
+  }
+
+  const auto message = source_.get(it->index);
+  if (!message) {
+    return std::nullopt;
+  }
+
+  const auto payload = message->toStringPayload().toStdString();
+
+  return Message{it->index,           it->timestamp,
+                 it->ecu_time,        ctids_.at(it->ctid),
+                 apids_.at(it->apid), ecuids_.at(it->ecuid),
+                 it->level,           payload};
+}
+
+void NgramIndex::search(const Query& params,
+                        std::function<bool(const Message&)> callback) {
+  std::optional<size_t> ctid_filter;
+  if (params.ctid) {
+    ctid_filter = ctids_.find(*params.ctid);
+    if (!ctid_filter) return;
+  }
+
+  std::optional<size_t> apid_filter;
+  if (params.apid) {
+    apid_filter = apids_.find(*params.apid);
+    if (!apid_filter) return;
+  }
+
+  BloomFilter::Key key;
+  if (params.keyword && filter_) {
+    key = filter_->makeKey(*params.keyword);
+  }
+
+  auto& index = storage_.get<by_timestamp>();
+  auto it = params.min_timestamp ? index.lower_bound(*params.min_timestamp)
+                                 : index.begin();
+  auto end = params.max_timestamp ? index.upper_bound(*params.max_timestamp)
+                                  : index.end();
+
+  for (; it != end; ++it) {
+    const auto& [idx, ts, ecu_time, ctid, apid, ecuid, level] = *it;
+
+    if (ctid_filter && ctid != *ctid_filter) continue;
+    if (apid_filter && apid != *apid_filter) continue;
+    if (params.min_level && level < *params.min_level) continue;
+    if (params.max_level && level > *params.max_level) continue;
+
+    if (params.keyword) {
+      if (filter_ && !filter_->contains(idx, key)) {
+        continue;
+      }
+      auto message = source_.get(idx);
+      if (!message) continue;
+      QString payload = message->toStringPayload();
+      Qt::CaseSensitivity case_sensitivity =
+          params.case_insensitive ? Qt::CaseInsensitive : Qt::CaseSensitive;
+      QString keyword = QString::fromStdString(*params.keyword);
+      if (!payload.contains(keyword, case_sensitivity)) continue;
+    }
+
+    auto dlt_message = source_.get(idx);
+    if (!dlt_message) continue;
+    Message message{idx,
+                    ts,
+                    ecu_time,
+                    ctids_.at(ctid),
+                    apids_.at(apid),
+                    ecuids_.at(ecuid),
+                    level,
+                    dlt_message->toStringPayload().toStdString()};
+
+    if (!callback(message)) break;
+  }
+}
+
+int64_t NgramIndex::firstTimestamp() const {
+  if (auto& index = storage_.get<by_timestamp>(); !index.empty()) {
+    return index.begin()->timestamp;
+  }
+  return 0;
+}
+
+int64_t NgramIndex::lastTimestamp() const {
+  if (auto& index = storage_.get<by_timestamp>(); !index.empty()) {
+    return index.rbegin()->timestamp;
+  }
+  return 0;
+}

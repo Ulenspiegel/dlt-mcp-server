@@ -9,6 +9,7 @@ include(FetchContent)
 
 find_package(Boost 1.74 REQUIRED)
 find_package(Git QUIET)
+find_package(GTest OPTIONAL)
 
 set(FMT_HEADER_ONLY ON CACHE BOOL "" FORCE)
 FetchContent_Declare(
@@ -68,7 +69,22 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(spdlog)
 
-add_library(dlt-mcp-server MODULE src/dlt-mcp-server.cpp src/dashboard.cpp src/report-cache.cpp src/settings-dialog.cpp src/basic_index.cpp src/bloom_filter.cpp)
+if (GTest_FOUND)
+    enable_testing()
+    add_executable(test_bloom_filter test/test_bloom_filter.cpp src/bloom_filter.cpp)
+    target_include_directories(test_bloom_filter PRIVATE src)
+    target_link_libraries(test_bloom_filter PRIVATE GTest::gtest_main ${QT_PREFIX}::Core)
+    add_test(NAME mcp-test_bloom_filter COMMAND $<TARGET_FILE:test_bloom_filter>)
+
+    add_custom_target(mcp-test
+            COMMAND ${CMAKE_CTEST_COMMAND} -R mcp-test_
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+            COMMENT "Running all mcp plugin tests"
+            VERBATIM)
+    add_dependencies(mcp-test test_bloom_filter)
+endif ()
+
+add_library(dlt-mcp-server MODULE src/dlt-mcp-server.cpp src/dashboard.cpp src/report-cache.cpp src/settings-dialog.cpp src/basic_index.cpp src/bloom_filter.cpp src/ngram_index.cpp)
 
 target_include_directories(dlt-mcp-server PRIVATE src)
 

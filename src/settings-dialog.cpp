@@ -17,6 +17,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSettings>
+#include <QSlider>
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <filesystem>
@@ -86,6 +87,55 @@ SettingsDialog::SettingsDialog(QSettings* settings, QWidget* parent)
   serverForm->setSpacing(12);
   serverGroup->setLayout(serverForm);
 
+  // Index filter size widgets
+  filterSizeSlider_ = new QSlider(Qt::Horizontal, this);
+  filterSizeSlider_->setRange(0, 3);
+  filterSizeSlider_->setSingleStep(1);
+  filterSizeSlider_->setPageStep(1);
+  filterSizeSlider_->setTickPosition(QSlider::TickPosition::TicksAbove);
+  filterSizeSlider_->setTickInterval(1);
+
+  filterSizeDescLabel_ = new QLabel(this);
+  filterSizeDescLabel_->setStyleSheet(kHintStyle);
+  filterSizeDescLabel_->setWordWrap(true);
+
+  auto* filterHintLabel = new QLabel(this);
+  filterHintLabel->setText("Takes effect on next file reload");
+  filterHintLabel->setStyleSheet(kHintStyle);
+
+  auto* filterContent = new QVBoxLayout();
+  filterContent->setSpacing(4);
+  {
+    auto* tickLabels = new QHBoxLayout();
+    tickLabels->setSpacing(0);
+    tickLabels->setContentsMargins(0, 0, 0, 0);
+    {
+      auto* offLabel = new QLabel("Off", this);
+      auto* smallLabel = new QLabel("Small", this);
+      auto* normalLabel = new QLabel("Normal", this);
+      auto* largeLabel = new QLabel("Large", this);
+      tickLabels->addWidget(offLabel);
+      tickLabels->addStretch();
+      tickLabels->addWidget(smallLabel);
+      tickLabels->addStretch();
+      tickLabels->addWidget(normalLabel);
+      tickLabels->addStretch();
+      tickLabels->addWidget(largeLabel);
+    }
+    filterContent->addLayout(tickLabels);
+    filterContent->addWidget(filterSizeSlider_);
+    filterContent->addWidget(filterSizeDescLabel_);
+    filterContent->addWidget(filterHintLabel);
+  }
+
+  // Keyword index group box
+  auto* indexGroup = new QGroupBox("Keyword Index", this);
+  auto* indexForm = new QFormLayout();
+  indexForm->setLabelAlignment(Qt::AlignLeft | Qt::AlignTop);
+  indexForm->addRow("Index size:", filterContent);
+  indexForm->setSpacing(12);
+  indexGroup->setLayout(indexForm);
+
   // Button box
   auto* buttonBox = new QDialogButtonBox(
       QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -93,6 +143,7 @@ SettingsDialog::SettingsDialog(QSettings* settings, QWidget* parent)
   // Main layout
   auto* mainLayout = new QVBoxLayout(this);
   mainLayout->addWidget(serverGroup);
+  mainLayout->addWidget(indexGroup);
   mainLayout->addStretch();
   mainLayout->addWidget(buttonBox);
 
@@ -112,6 +163,9 @@ SettingsDialog::SettingsDialog(QSettings* settings, QWidget* parent)
     contextFileEdit_->clear();
     validateContextFile();
   });
+
+  connect(filterSizeSlider_, &QSlider::valueChanged, this,
+          &SettingsDialog::updateFilterSizeDescription);
 
   connect(buttonBox, &QDialogButtonBox::accepted, this, [this]() {
     saveSettings();
@@ -136,6 +190,9 @@ void SettingsDialog::loadSettings() {
   if (!ctxFile.isEmpty()) {
     contextFileEdit_->setText(ctxFile);
   }
+  filterSizeSlider_->setValue(
+      settings_->value(BloomFilterSizeKey, DefaultBloomFilterSize).toInt());
+  updateFilterSizeDescription();
 }
 
 void SettingsDialog::saveSettings() {
@@ -145,6 +202,12 @@ void SettingsDialog::saveSettings() {
     settings_->remove(ContextFileKey);
   } else {
     settings_->setValue(ContextFileKey, ctxFile);
+  }
+  int filterSize = filterSizeSlider_->value();
+  if (filterSize == DefaultBloomFilterSize) {
+    settings_->remove(BloomFilterSizeKey);
+  } else {
+    settings_->setValue(BloomFilterSizeKey, filterSize);
   }
 }
 
@@ -163,4 +226,16 @@ void SettingsDialog::validateContextFile() {
   } else {
     contextWarningLabel_->setVisible(false);
   }
+}
+
+void SettingsDialog::updateFilterSizeDescription() {
+  const char* descriptions[] = {
+      "Full text index disabled. No additional memory usage for indexing.",
+      "For memory-constrained systems. Memory usage per 1M lines: 16 MB",
+      "Balanced performance and memory. Memory usage per 1M lines: 32 MB",
+      "Most accurate indexing. Memory usage per 1M lines: 64 MB",
+  };
+  int idx = filterSizeSlider_->value();
+  if (idx < 0 || idx > 3) idx = 0;
+  filterSizeDescLabel_->setText(descriptions[idx]);
 }

@@ -18,9 +18,9 @@ class BloomFilter {
  public:
   enum class Size : size_t {
     kNone = 0,
+    k8KB = 8 * 1024,
     k16KB = 16 * 1024,
     k32KB = 32 * 1024,
-    k64KB = 64 * 1024,
   };
 
   class Key {
@@ -50,7 +50,7 @@ class BloomFilter {
   bool contains(size_t index, Key& key) const;
 
  private:
-  static constexpr size_t kBlockSize = 2000;
+  static constexpr size_t kBlockSize = 500;
   static constexpr size_t kHashCount = 4;
 
   size_t bytes_per_block_;

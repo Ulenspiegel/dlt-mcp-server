@@ -13,6 +13,7 @@
 
 #include <QStandardPaths>
 #include <cctype>
+#include <chrono>
 #include <climits>
 #include <cstring>
 #include <filesystem>
@@ -20,6 +21,8 @@
 #include <sstream>
 
 #include "basic_index.h"
+#include "config.h"
+#include "ngram_index.h"
 #include "settings-dialog.h"
 #include "statistics.h"
 #include "utility/formatters.h"
@@ -29,6 +32,26 @@
 
 namespace spd = spdlog;
 
+static BloomFilter::Size readBloomFilterSize(const QSettings* settings) {
+  int val = settings->value(BloomFilterSizeKey, DefaultBloomFilterSize).toInt();
+  if (val == 0) return BloomFilter::Size::kNone;
+  if (val == 1) return BloomFilter::Size::k8KB;
+  if (val == 2) return BloomFilter::Size::k16KB;
+  if (val == 3) return BloomFilter::Size::k32KB;
+  return BloomFilter::Size::kNone;
+}
+
+static std::unique_ptr<Index> createIndex(MessageSource& source,
+                                          const QSettings* settings) {
+  BloomFilter::Size size = readBloomFilterSize(settings);
+  if (size == BloomFilter::Size::kNone) {
+    spd::info("Bloom filter disabled, using basic index");
+    return std::make_unique<BasicIndex>(source);
+  }
+  spd::info("Using Bloom filter with size {}", static_cast<int>(size));
+  return std::make_unique<NgramIndex>(source, size);
+}
+
 DltMcpServer::DltMcpServer() {
   settings_ =
       std::make_unique<QSettings>("MyCompany", "DLTViewer_DltMcpServer");
@@ -37,7 +60,7 @@ DltMcpServer::DltMcpServer() {
   std::filesystem::path cachePath(cacheDir.toStdString());
   cachePath /= "dlt-mcp-server/reports.json";
   reportCache_ = std::make_unique<ReportCache>(cachePath.string());
-  index_ = std::make_unique<BasicIndex>(*this);
+  index_ = createIndex(*this, settings_.get());
   initMcpServer();
   registerMcpTools();
   server_->start(false);
@@ -115,9 +138,12 @@ void DltMcpServer::selectedIdxMsgDecoded(int index, QDltMsg& /*message*/) {
 void DltMcpServer::selectedIdxMsg(int /*index*/, QDltMsg& /*message*/) {}
 
 void DltMcpServer::initFileStart(QDltFile* file) {
-  reset();
   dlt_file_ = file;
   is_live_ = false;
+  index_ = createIndex(*this, settings_.get());
+  statistics_.reset();
+  file_ranges_.clear();
+  selected_index_ = -1;
   if (dashboard_) {
     QMetaObject::invokeMethod(dashboard_, &Dashboard::clearReport,
                               Qt::QueuedConnection);
@@ -556,6 +582,11 @@ mcp::json DltMcpServer::search(const mcp::json& params,
   std::string keyword =
       has_keyword ? params["keyword"].get<std::string>() : std::string();
 
+  if (has_keyword && keyword.empty()) {
+    throw mcp::mcp_exception(mcp::error_code::invalid_params,
+                             "keyword parameter was provided but is empty");
+  }
+
   bool case_insensitive = params.contains("case_insensitive")
                               ? params["case_insensitive"].get<bool>()
                               : false;
@@ -604,7 +635,8 @@ mcp::json DltMcpServer::search(const mcp::json& params,
     query.case_insensitive = case_insensitive;
   }
 
-  spd::debug("Query: {}", query);
+  spd::info("Query: {}", query);
+  auto search_start = std::chrono::steady_clock::now();
 
   int matches_count = 0;
   int matches_skipped = 0;
@@ -643,6 +675,12 @@ mcp::json DltMcpServer::search(const mcp::json& params,
     }
     return true;
   });
+
+  auto search_end = std::chrono::steady_clock::now();
+  auto duration_ms =
+      std::chrono::duration<double, std::milli>(search_end - search_start)
+          .count();
+  spd::info("Search completed in {:.1f}ms", duration_ms);
 
   int total_count =
       count_only ? matches_count : matches_collected + matches_skipped;

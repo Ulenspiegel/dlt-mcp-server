@@ -15,6 +15,7 @@ class QLabel;
 class QLineEdit;
 class QPushButton;
 class QSettings;
+class QSlider;
 class QSpinBox;
 
 class SettingsDialog : public QDialog {
@@ -31,6 +32,7 @@ class SettingsDialog : public QDialog {
   void loadSettings();
   void saveSettings();
   void validateContextFile();
+  void updateFilterSizeDescription();
 
   QSettings* settings_;
   QSpinBox* portSpin_;
@@ -39,6 +41,8 @@ class SettingsDialog : public QDialog {
   QPushButton* browseBtn_;
   QPushButton* resetBtn_;
   QLabel* contextWarningLabel_;
+  QSlider* filterSizeSlider_;
+  QLabel* filterSizeDescLabel_;
 };
 
 #endif  // SETTINGS_DIALOG_H
