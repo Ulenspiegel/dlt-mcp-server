@@ -410,6 +410,7 @@ void DltMcpServer::registerMcpTools() {
       mcp::tool_builder("set_report")
           .with_description(
               "Set the Markdown report content in the plugin widget. "
+              "Provide a title to label the report in the history. "
               "Use [text](jump://msg/<id>) links where <id> is the message ID "
               "(#) from other tools, to create clickable message references. "
               "Pass empty string to clear the report. "
@@ -417,6 +418,11 @@ void DltMcpServer::registerMcpTools() {
               "result — do not overwrite existing reports during "
               "intermediate exploration. "
               "If unsure whether the analysis is complete, ask the user first.")
+          .with_string_param("title",
+                             "Short descriptive title for the report. "
+                             "Optional; if omitted, the report will be labeled "
+                             "'Untitled'.",
+                             false)
           .with_string_param(
               "markdown", "Markdown-formatted report content to display", true)
           .build();
