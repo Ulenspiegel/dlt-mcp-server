@@ -58,8 +58,8 @@ DltMcpServer::DltMcpServer() {
   auto cacheDir =
       QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
   std::filesystem::path cachePath(cacheDir.toStdString());
-  cachePath /= "dlt-mcp-server/reports.json";
-  reportCache_ = std::make_unique<ReportCache>(cachePath.string());
+  cachePath /= "dlt-mcp-server/reports";
+  reportStorage_ = std::make_unique<ReportStorage>(cachePath.string());
   index_ = createIndex(*this, settings_.get());
   initMcpServer();
   registerMcpTools();
@@ -160,13 +160,16 @@ void DltMcpServer::initFileFinish() {
   computeFileRanges();
   if (dlt_file_ && dlt_file_->size() > 0) {
     emit fileCountChanged(file_ranges_.size());
-    auto key = buildReportKey();
-    if (!key.empty() && dashboard_) {
-      std::string cached = reportCache_->get(key);
-      if (!cached.empty()) {
+    auto [file_paths, per_file_counts] = buildReportIdentity();
+    if (!file_paths.empty() && dashboard_) {
+      auto reports = reportStorage_->list(
+          ReportStorage::Filter{file_paths, per_file_counts});
+      if (!reports.empty()) {
         QMetaObject::invokeMethod(
             dashboard_,
-            [dash = dashboard_, cached]() { dash->setReport(cached); },
+            [dash = dashboard_, content = reports.front().content]() {
+              dash->setReport(content);
+            },
             Qt::QueuedConnection);
       }
     }
@@ -200,22 +203,17 @@ void DltMcpServer::reset() {
   file_ranges_.clear();
 }
 
-std::string DltMcpServer::buildReportKey() {
-  if (file_ranges_.empty()) {
-    return {};
-  }
-
-  std::string names;
-  int totalCount = 0;
+std::pair<std::vector<std::string>, std::vector<int>>
+DltMcpServer::buildReportIdentity() const {
+  std::vector<std::string> file_paths;
+  std::vector<int> per_file_counts;
+  file_paths.reserve(file_ranges_.size());
+  per_file_counts.reserve(file_ranges_.size());
   for (const auto& info : file_ranges_) {
-    if (!names.empty()) {
-      names += "+";
-    }
-    names += std::filesystem::path(info.name).filename().string();
-    totalCount += info.message_count;
+    file_paths.push_back(info.name);
+    per_file_counts.push_back(info.message_count);
   }
-  names += ":" + std::to_string(totalCount);
-  return names;
+  return {file_paths, per_file_counts};
 }
 
 void DltMcpServer::onMessageReceived(int index, const QDltMsg& message) {
@@ -833,11 +831,10 @@ mcp::json DltMcpServer::set_report(const mcp::json& params,
                              "markdown parameter is required");
   }
   std::string markdown = params["markdown"].get<std::string>();
-  if (!markdown.empty() && !is_live_) {
-    auto key = buildReportKey();
-    if (!key.empty()) {
-      reportCache_->put(key, markdown);
-    }
+  std::string title = params.value("title", std::string{});
+  if (!markdown.empty() && !is_live_ && !file_ranges_.empty()) {
+    auto [file_paths, per_file_counts] = buildReportIdentity();
+    reportStorage_->put(file_paths, per_file_counts, title, markdown);
   }
   QMetaObject::invokeMethod(
       dashboard_,
