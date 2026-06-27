@@ -18,11 +18,11 @@
 #include <memory>
 #include <mutex>
 
-#include "ui/dashboard.h"
 #include "index.h"
 #include "plugininterface.h"
-#include "report-storage.h"
+#include "report_storage.h"
 #include "statistics.h"
+#include "ui/dashboard.h"
 
 #ifndef DLT_VIEWER_PLUGIN_VERSION
 #define DLT_VIEWER_PLUGIN_VERSION "0.0.0"

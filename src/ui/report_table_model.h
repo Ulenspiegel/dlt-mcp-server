@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-#include "report-storage.h"
+#include "report_storage.h"
 
 class ReportTableModel : public QAbstractTableModel {
   Q_OBJECT

@@ -26,10 +26,10 @@
 #include <filesystem>
 #include <string>
 
-#include "dlt-mcp-server.h"
-#include "ui/report-browser.h"
-#include "ui/report-header.h"
-#include "ui/report-table-model.h"
+#include "dlt_mcp_server.h"
+#include "ui/report_browser.h"
+#include "ui/report_header.h"
+#include "ui/report_table_model.h"
 
 namespace spd = spdlog;
 
@@ -98,9 +98,7 @@ Dashboard::Dashboard(QSettings* settings, DltMcpServer* server, QWidget* parent)
           });
 
   connect(reportBrowserWidget_, &ReportBrowserWidget::reportSelected, this,
-          [this](int row) {
-            showReport(reportBrowserWidget_->reportAt(row));
-          });
+          [this](int row) { showReport(reportBrowserWidget_->reportAt(row)); });
 
   connect(reportBrowserWidget_, &ReportBrowserWidget::deleteSelected, this,
           [this]() {

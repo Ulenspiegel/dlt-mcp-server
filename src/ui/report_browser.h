@@ -16,7 +16,7 @@ class QItemSelectionModel;
 class QTableView;
 class QPushButton;
 
-#include "report-storage.h"
+#include "report_storage.h"
 
 class ReportTableModel;
 

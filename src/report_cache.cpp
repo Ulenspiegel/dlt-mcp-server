@@ -6,7 +6,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "report-cache.h"
+#include "report_cache.h"
 
 #include <filesystem>
 #include <fstream>

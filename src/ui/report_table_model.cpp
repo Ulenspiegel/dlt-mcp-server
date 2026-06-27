@@ -6,14 +6,14 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "ui/report-table-model.h"
+#include "ui/report_table_model.h"
 
 #include <QApplication>
 #include <QPalette>
 #include <QString>
 #include <chrono>
 
-#include "report-storage.h"
+#include "report_storage.h"
 
 ReportTableModel::ReportTableModel(QObject* parent)
     : QAbstractTableModel(parent) {}

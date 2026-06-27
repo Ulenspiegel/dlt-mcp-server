@@ -12,7 +12,7 @@
 #include <QWidget>
 
 #include "config.h"
-#include "report-storage.h"
+#include "report_storage.h"
 
 class DltMcpServer;
 class QLabel;

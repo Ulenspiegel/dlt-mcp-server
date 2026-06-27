@@ -88,15 +88,15 @@ add_library(
     dlt-mcp-server MODULE
     src/basic_index.cpp
     src/bloom_filter.cpp
-    src/dlt-mcp-server.cpp
+    src/dlt_mcp_server.cpp
     src/ngram_index.cpp
-    src/report-cache.cpp
-    src/report-storage.cpp
+    src/report_cache.cpp
+    src/report_storage.cpp
     src/ui/dashboard.cpp
-    src/ui/report-browser.cpp
-    src/ui/report-header.cpp
-    src/ui/report-table-model.cpp
-    src/ui/settings-dialog.cpp
+    src/ui/report_browser.cpp
+    src/ui/report_header.cpp
+    src/ui/report_table_model.cpp
+    src/ui/settings_dialog.cpp
 )
 
 target_include_directories(dlt-mcp-server PRIVATE src)

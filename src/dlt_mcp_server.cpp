@@ -6,7 +6,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "dlt-mcp-server.h"
+#include "dlt_mcp_server.h"
 
 #include <mcp_message.h>
 #include <spdlog/spdlog.h>
@@ -23,8 +23,8 @@
 #include "basic_index.h"
 #include "config.h"
 #include "ngram_index.h"
-#include "ui/settings-dialog.h"
 #include "statistics.h"
+#include "ui/settings_dialog.h"
 #include "utility/formatters.h"
 #include "utility/message.h"
 #include "utility/string.h"
