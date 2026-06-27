@@ -6,7 +6,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "report-table-model.h"
+#include "ui/report-table-model.h"
 
 #include <QApplication>
 #include <QPalette>

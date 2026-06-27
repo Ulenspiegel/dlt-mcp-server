@@ -6,7 +6,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "settings-dialog.h"
+#include "ui/settings-dialog.h"
 
 #include <QBoxLayout>
 #include <QDialogButtonBox>

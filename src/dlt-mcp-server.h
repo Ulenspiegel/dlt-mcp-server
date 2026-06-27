@@ -18,7 +18,7 @@
 #include <memory>
 #include <mutex>
 
-#include "dashboard.h"
+#include "ui/dashboard.h"
 #include "index.h"
 #include "plugininterface.h"
 #include "report-storage.h"

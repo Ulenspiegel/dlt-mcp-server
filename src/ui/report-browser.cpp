@@ -6,7 +6,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "report-browser.h"
+#include "ui/report-browser.h"
 
 #include <QCheckBox>
 #include <QHBoxLayout>
@@ -16,7 +16,7 @@
 #include <QVBoxLayout>
 
 #include "report-storage.h"
-#include "report-table-model.h"
+#include "ui/report-table-model.h"
 
 ReportBrowserWidget::ReportBrowserWidget(QWidget* parent)
     : QWidget(parent),

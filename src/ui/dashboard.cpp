@@ -6,7 +6,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "dashboard.h"
+#include "ui/dashboard.h"
 
 #include <md4c-html.h>
 #include <spdlog/spdlog.h>
@@ -27,9 +27,9 @@
 #include <string>
 
 #include "dlt-mcp-server.h"
-#include "report-browser.h"
-#include "report-header.h"
-#include "report-table-model.h"
+#include "ui/report-browser.h"
+#include "ui/report-header.h"
+#include "ui/report-table-model.h"
 
 namespace spd = spdlog;
 

@@ -23,7 +23,7 @@
 #include "basic_index.h"
 #include "config.h"
 #include "ngram_index.h"
-#include "settings-dialog.h"
+#include "ui/settings-dialog.h"
 #include "statistics.h"
 #include "utility/formatters.h"
 #include "utility/message.h"

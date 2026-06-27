@@ -6,7 +6,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "report-header.h"
+#include "ui/report-header.h"
 
 #include <QFontMetrics>
 #include <QHBoxLayout>
