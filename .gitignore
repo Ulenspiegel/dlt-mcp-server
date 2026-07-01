@@ -9,9 +9,6 @@ Makefile
 install_manifest.txt
 compile_commands.json
 
-# CMake FetchContent deps
-_deps/
-
 # C++ build artifacts
 *.o
 *.obj

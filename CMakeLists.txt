@@ -5,19 +5,22 @@
 # If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
-include(FetchContent)
-
 find_package(Boost 1.74 REQUIRED)
 find_package(Git QUIET)
 find_package(GTest QUIET)
 
+# Dependencies below are vendored as git submodules (under external/) rather than
+# fetched via FetchContent, so that Dependabot can track and propose updates to
+# them (see .github/dependabot.yml, package-ecosystem "gitsubmodule").
+if (GIT_FOUND)
+    execute_process(
+            COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+endif ()
+
 set(FMT_HEADER_ONLY ON CACHE BOOL "" FORCE)
-FetchContent_Declare(
-        fmt
-        GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-        GIT_TAG 12.2.0
-)
-FetchContent_MakeAvailable(fmt)
+add_subdirectory(external/fmt)
 add_library(fmt::fmt ALIAS fmt)
 
 # Derive version from git tags; fall back to 0.0.0 if no tags or git unavailable.
@@ -41,23 +44,14 @@ endif ()
 # Pinned to a specific commit instead of a moving branch (main) for supply-chain
 # safety. The transport/network code lives in this dependency, so its contents
 # must be reproducible. Update deliberately after reviewing upstream changes.
-FetchContent_Declare(
-        cpp-mcp
-        GIT_REPOSITORY https://github.com/hkr04/cpp-mcp.git
-        GIT_TAG a0eb22c98dbd8ce8b3ef69679310c1a038905c08
-)
-FetchContent_MakeAvailable(cpp-mcp)
+set(cpp-mcp_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/cpp-mcp)
+add_subdirectory(${cpp-mcp_SOURCE_DIR})
 add_library(mcp::mcp ALIAS mcp)
 target_include_directories(mcp INTERFACE ${cpp-mcp_SOURCE_DIR}/common ${cpp-mcp_SOURCE_DIR}/include)
 
-FetchContent_Declare(
-        md4c
-        GIT_REPOSITORY https://github.com/mity/md4c.git
-        GIT_TAG release-0.5.3
-)
 set(BUILD_MD2HTML_EXECUTABLE OFF CACHE BOOL "" FORCE)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-FetchContent_MakeAvailable(md4c)
+add_subdirectory(external/md4c)
 add_library(md4c::md4c-html ALIAS md4c-html)
 
 set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "" FORCE)
@@ -65,12 +59,7 @@ set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
 set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(SPDLOG_BUILD_TESTS_HARMFUL OFF CACHE BOOL "" FORCE)
 set(SPDLOG_HEADER_ONLY ON CACHE BOOL "" FORCE)
-FetchContent_Declare(
-        spdlog
-        GIT_REPOSITORY https://github.com/gabime/spdlog.git
-        GIT_TAG v1.15.3
-)
-FetchContent_MakeAvailable(spdlog)
+add_subdirectory(external/spdlog)
 
 if (GTest_FOUND)
     enable_testing()

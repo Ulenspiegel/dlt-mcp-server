@@ -5,7 +5,10 @@
 
 version: 2
 updates:
-  - package-ecosystem: "" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  # Third-party dependencies (fmt, cpp-mcp, md4c, spdlog) are vendored as git
+  # submodules under external/ (see .gitmodules) instead of CMake FetchContent,
+  # so Dependabot can track and propose updates to their pinned commits.
+  - package-ecosystem: "gitsubmodule"
+    directory: "/"
     schedule:
       interval: "weekly"
