@@ -33,6 +33,30 @@
 
 namespace spd = spdlog;
 
+namespace {
+
+// QTextBrowser subclass that refuses to fetch remote resources. Report content
+// is supplied by the (untrusted) MCP client/agent and rendered as HTML, so a
+// malicious report could embed e.g. <img src="http://attacker/beacon.png"> to
+// exfiltrate data or phone home. Blocking network-backed resource loads keeps
+// rendering fully local. Local/relative/data/inline resources are still served.
+class SafeTextBrowser : public QTextBrowser {
+ public:
+  using QTextBrowser::QTextBrowser;
+
+ protected:
+  QVariant loadResource(int type, const QUrl& name) override {
+    const QString scheme = name.scheme().toLower();
+    if (scheme == "http" || scheme == "https" || scheme == "ftp" ||
+        scheme == "ftps") {
+      return {};
+    }
+    return QTextBrowser::loadResource(type, name);
+  }
+};
+
+}  // namespace
+
 static std::string markdownToHtml(const std::string& markdown) {
   std::string html;
   md_html(
@@ -49,7 +73,7 @@ Dashboard::Dashboard(QSettings* settings, DltMcpServer* server, QWidget* parent)
       settings_(settings),
       server_(server),
       tabWidget_(new QTabWidget(this)),
-      reportBrowser_(new QTextBrowser(this)),
+      reportBrowser_(new SafeTextBrowser(this)),
       reportSplitter_(new QSplitter(Qt::Horizontal, this)),
       reportBrowserWidget_(new ReportBrowserWidget(this)),
       statusLabel_(new QLabel(this)),
