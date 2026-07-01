@@ -1,0 +1,12 @@
+[submodule "external/fmt"]
+	path = external/fmt
+	url = https://github.com/fmtlib/fmt.git
+[submodule "external/cpp-mcp"]
+	path = external/cpp-mcp
+	url = https://github.com/hkr04/cpp-mcp.git
+[submodule "external/md4c"]
+	path = external/md4c
+	url = https://github.com/mity/md4c.git
+[submodule "external/spdlog"]
+	path = external/spdlog
+	url = https://github.com/gabime/spdlog.git
