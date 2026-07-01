@@ -9,7 +9,7 @@ include(FetchContent)
 
 find_package(Boost 1.74 REQUIRED)
 find_package(Git QUIET)
-find_package(GTest OPTIONAL)
+find_package(GTest QUIET)
 
 set(FMT_HEADER_ONLY ON CACHE BOOL "" FORCE)
 FetchContent_Declare(
@@ -38,10 +38,13 @@ else ()
     set(PLUGIN_VERSION "0.0.0")
 endif ()
 
+# Pinned to a specific commit instead of a moving branch (main) for supply-chain
+# safety. The transport/network code lives in this dependency, so its contents
+# must be reproducible. Update deliberately after reviewing upstream changes.
 FetchContent_Declare(
         cpp-mcp
         GIT_REPOSITORY https://github.com/hkr04/cpp-mcp.git
-        GIT_TAG main
+        GIT_TAG a0eb22c98dbd8ce8b3ef69679310c1a038905c08
 )
 FetchContent_MakeAvailable(cpp-mcp)
 add_library(mcp::mcp ALIAS mcp)
