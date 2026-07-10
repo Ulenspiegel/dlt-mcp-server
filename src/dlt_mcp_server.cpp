@@ -116,7 +116,9 @@ bool DltMcpServer::stateChanged(
 
 bool DltMcpServer::autoscrollStateChanged(bool /*enabled*/) { return true; }
 
-void DltMcpServer::initMessageDecoder(QDltMessageDecoder* /*messageDecoder*/) {}
+void DltMcpServer::initMessageDecoder(QDltMessageDecoder* messageDecoder) {
+  message_decoder_ = messageDecoder;
+}
 
 void DltMcpServer::initMainTableView(QTableView* /*pTableView*/) {}
 
@@ -240,6 +242,13 @@ std::optional<QDltMsg> DltMcpServer::get(int index) const {
   }
   QDltMsg message;
   if (dlt_file_->getMsg(index, message)) {
+    /* Run the message through all loaded/enabled decoder plugins
+     * so the payload matches what is displayed in the
+     * viewer after decryption/decoding, instead of the raw stored payload.
+     */
+    if (message_decoder_) {
+      message_decoder_->decodeMsg(message, 0);
+    }
     return message;
   }
   return std::nullopt;
@@ -751,10 +760,11 @@ mcp::json DltMcpServer::get_messages(const mcp::json& params,
   for (const auto& id_json : ids) {
     int message_index = id_json.get<int>();
 
-    QDltMsg message;
-    if (!dlt_file_->getMsg(message_index, message)) {
+    auto message_opt = get(message_index);
+    if (!message_opt) {
       continue;
     }
+    QDltMsg& message = *message_opt;
 
     // Extract metadata from message.
     std::string ctid_str = message.getCtid().toStdString();
@@ -800,11 +810,12 @@ mcp::json DltMcpServer::get_selection(const mcp::json& /*params*/,
                              "DLT file is not loaded");
   }
 
-  QDltMsg message;
-  if (!dlt_file_->getMsg(selected_index_, message)) {
+  auto message_opt = get(selected_index_);
+  if (!message_opt) {
     throw mcp::mcp_exception(mcp::error_code::internal_error,
                              "Failed to retrieve selected message");
   }
+  QDltMsg& message = *message_opt;
 
   int64_t timestamp = getWallClockNs(message);
   int64_t ecu_time = getEcuTimeTicks(message);

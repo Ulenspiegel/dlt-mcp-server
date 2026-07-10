@@ -166,6 +166,12 @@ class DltMcpServer : public QObject,
   std::atomic<uint32_t> query_id_{0};
   bool is_live_{false};
 
+  /* Set via initMessageDecoder(); used by get() to run fetched messages
+   * through all loaded/enabled decoder plugins so
+   * that MCP tools see the same decoded/decrypted payload as the viewer UI.
+   */
+  QDltMessageDecoder* message_decoder_{nullptr};
+
   std::pair<std::vector<std::string>, std::vector<int>> buildReportIdentity()
       const;
 };
