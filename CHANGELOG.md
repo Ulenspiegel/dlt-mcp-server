@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Introduced new on-disk report storage format, avoiding single file database and separating metadata from content.
 - Saved report browser - view, filter, load and delete saved reports.
 - Test coverage for hash functions and `cleanPayload`.
+- Introduce report validation (malformed links, out-of-range indices as errors, absence of links as a warning).
 
 ### Changed
 - Bloom filter block size reduced from 2000 to 500 messages to counter repetitive trigram matches.
@@ -31,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move dependencies to submodules and pin them at fixed commit hashes. (@HomoHabilis)
 - Prevent the report browser from loading external links. (@HomoHabilis)
 - Create a dependabot config file. (@HomoHabilis)
+- Prevent agent from setting the report if no files are loaded.
 
 ### Fixed
 - NgramIndex constructor bug where filter_ was nullptr and index always reverted to full-text search.

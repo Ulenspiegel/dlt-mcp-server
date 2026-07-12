@@ -27,6 +27,7 @@
 #include "ui/settings_dialog.h"
 #include "utility/formatters.h"
 #include "utility/message.h"
+#include "utility/report_validation.h"
 #include "utility/string.h"
 #include "utility/time.h"
 
@@ -847,12 +848,37 @@ mcp::json DltMcpServer::set_report(const mcp::json& params,
     throw mcp::mcp_exception(mcp::error_code::internal_error,
                              "Dashboard not initialized");
   }
+  if (!dlt_file_) {
+    throw mcp::mcp_exception(mcp::error_code::internal_error,
+                             "DLT file is not loaded");
+  }
   if (!params.contains("markdown") || !params["markdown"].is_string()) {
     throw mcp::mcp_exception(mcp::error_code::invalid_params,
                              "markdown parameter is required");
   }
   std::string markdown = params["markdown"].get<std::string>();
   std::string title = params.value("title", std::string{});
+  std::string warning;
+  if (!markdown.empty()) {
+    const auto result = validateReport(markdown, dlt_file_->size() - 1);
+    if (result.hasErrors()) {
+      std::string error_msg;
+      if (!result.malformed_links.empty()) {
+        error_msg += "Malformed links: " + result.formatMalformedLinks();
+      }
+      if (!result.out_of_range_ids.empty()) {
+        if (!error_msg.empty()) error_msg += "\n";
+        error_msg += "Out of range IDs: " + result.formatOutOfRangeIds();
+      }
+      throw mcp::mcp_exception(mcp::error_code::invalid_params, error_msg);
+    }
+    if (result.valid_links == 0) {
+      warning =
+          "No valid jump://msg/<id> links found in the report. "
+          "If this was unintended, check that links are not inside "
+          "code blocks or inline code.";
+    }
+  }
   ReportStorage::Report reportToShow;
   if (!markdown.empty() && !is_live_ && !file_ranges_.empty()) {
     auto [file_paths, per_file_counts] = buildReportIdentity();
@@ -876,7 +902,7 @@ mcp::json DltMcpServer::set_report(const mcp::json& params,
         }
       },
       Qt::QueuedConnection);
-  return makeTextResult("");
+  return makeTextResult("", warning);
 }
 
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)

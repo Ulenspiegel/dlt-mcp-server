@@ -84,6 +84,7 @@ add_library(
     src/ui/report_header.cpp
     src/ui/report_table_model.cpp
     src/ui/settings_dialog.cpp
+    src/utility/report_validation.cpp
 )
 
 target_include_directories(dlt-mcp-server PRIVATE src)
