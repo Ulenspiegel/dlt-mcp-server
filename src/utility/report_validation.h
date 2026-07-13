@@ -16,11 +16,13 @@ struct ReportValidationResult {
   int valid_links = 0;
   std::vector<std::string> malformed_links;
   std::vector<int> out_of_range_ids;
+  std::vector<std::string> links_in_code_blocks;
   int max_msg_idx = 0;
 
   bool hasErrors() const;
   std::string formatMalformedLinks() const;
   std::string formatOutOfRangeIds() const;
+  std::string formatLinksInCodeBlocks() const;
 };
 
 ReportValidationResult validateReport(const std::string& report,

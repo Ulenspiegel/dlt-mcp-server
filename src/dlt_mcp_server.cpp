@@ -870,6 +870,11 @@ mcp::json DltMcpServer::set_report(const mcp::json& params,
         if (!error_msg.empty()) error_msg += "\n";
         error_msg += "Out of range IDs: " + result.formatOutOfRangeIds();
       }
+      if (!result.links_in_code_blocks.empty()) {
+        if (!error_msg.empty()) error_msg += "\n";
+        error_msg += "Links in code blocks (not clickable): " +
+                     result.formatLinksInCodeBlocks();
+      }
       throw mcp::mcp_exception(mcp::error_code::invalid_params, error_msg);
     }
     if (result.valid_links == 0) {

@@ -12,6 +12,7 @@
 
 #include <QUrl>
 #include <cstring>
+#include <regex>
 
 namespace {
 
@@ -25,8 +26,23 @@ int noopSpanCallback(MD_SPANTYPE /*type*/, void* /*detail*/,
   return 0;
 }
 
-int noopTextCallback(MD_TEXTTYPE /*type*/, const MD_CHAR* /*text*/,
-                     MD_SIZE /*size*/, void* /*userdata*/) {
+int validateReport_textCallback(MD_TEXTTYPE type, const MD_CHAR* text,
+                                MD_SIZE size, void* userdata) {
+  if (type != MD_TEXT_CODE || !text || !size) {
+    return 0;
+  }
+
+  auto* result = static_cast<ReportValidationResult*>(userdata);
+
+  std::string text_str(static_cast<const char*>(text), size);
+  std::regex link_regex("jump://[a-zA-Z0-9/]+");
+  auto begin =
+      std::sregex_iterator(text_str.begin(), text_str.end(), link_regex);
+  auto end_iter = std::sregex_iterator();
+
+  for (auto it = begin; it != end_iter; ++it) {
+    result->links_in_code_blocks.emplace_back(it->str());
+  }
   return 0;
 }
 
@@ -83,7 +99,7 @@ ReportValidationResult validateReport(const std::string& report,
   parser.leave_block = noopBlockCallback;
   parser.enter_span = validateReport_enterSpan;
   parser.leave_span = noopSpanCallback;
-  parser.text = noopTextCallback;
+  parser.text = validateReport_textCallback;
 
   md_parse(report.c_str(), static_cast<MD_SIZE>(report.size()), &parser,
            &result);
@@ -92,7 +108,8 @@ ReportValidationResult validateReport(const std::string& report,
 }
 
 bool ReportValidationResult::hasErrors() const {
-  return !malformed_links.empty() || !out_of_range_ids.empty();
+  return !malformed_links.empty() || !out_of_range_ids.empty() ||
+         !links_in_code_blocks.empty();
 }
 
 std::string ReportValidationResult::formatMalformedLinks() const {
@@ -112,6 +129,15 @@ std::string ReportValidationResult::formatOutOfRangeIds() const {
   }
   if (!out_of_range_ids.empty()) {
     result += " (min: 0, max: " + std::to_string(max_msg_idx) + ")";
+  }
+  return result;
+}
+
+std::string ReportValidationResult::formatLinksInCodeBlocks() const {
+  std::string result;
+  for (size_t i = 0; i < links_in_code_blocks.size(); ++i) {
+    if (i > 0) result += ", ";
+    result += links_in_code_blocks[i];
   }
   return result;
 }

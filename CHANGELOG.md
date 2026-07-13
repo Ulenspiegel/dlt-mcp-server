@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Saved report browser - view, filter, load and delete saved reports.
 - Test coverage for hash functions and `cleanPayload`.
 - Introduce report validation (malformed links, out-of-range indices as errors, absence of links as a warning).
+- Detection of links in code blocks.
 
 ### Changed
 - Bloom filter block size reduced from 2000 to 500 messages to counter repetitive trigram matches.
