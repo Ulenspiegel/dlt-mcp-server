@@ -842,6 +842,63 @@ mcp::json DltMcpServer::get_selection(const mcp::json& /*params*/,
   return makeTextResult(oss.str());
 }
 
+std::pair<std::string, std::string> DltMcpServer::evaluateValidation(
+    const ReportValidationResult& result) const {
+  auto code_blocks_severity = static_cast<ReportValidationSeverity>(
+      settings_
+          ->value(LinksInCodeBlocksKey,
+                  static_cast<int>(DefaultLinksInCodeBlocks))
+          .toInt());
+  auto no_links_severity = static_cast<ReportValidationSeverity>(
+      settings_->value(NoLinksKey, static_cast<int>(DefaultNoLinks)).toInt());
+
+  std::string error_msg;
+  std::string warning;
+
+  // Always errors
+  if (!result.malformed_links.empty()) {
+    error_msg += "Malformed links: " + result.formatMalformedLinks();
+  }
+  if (!result.out_of_range_ids.empty()) {
+    if (!error_msg.empty()) error_msg += "\n";
+    error_msg += "Out of range IDs: " + result.formatOutOfRangeIds();
+  }
+
+  // Configurable: links in code blocks
+  if (code_blocks_severity != ReportValidationSeverity::kIgnore &&
+      !result.links_in_code_blocks.empty()) {
+    std::string code_block_msg = "Links in code blocks (not clickable): " +
+                                 result.formatLinksInCodeBlocks();
+    if (code_blocks_severity == ReportValidationSeverity::kError) {
+      if (!error_msg.empty()) error_msg += "\n";
+      error_msg += code_block_msg;
+    } else {
+      warning += code_block_msg;
+    }
+  }
+
+  // Configurable: no clickable links
+  if (no_links_severity != ReportValidationSeverity::kIgnore &&
+      result.valid_links == 0) {
+    std::string no_links_msg =
+        "No valid jump://msg/<id> links found in the report.";
+    if (code_blocks_severity == ReportValidationSeverity::kIgnore) {
+      no_links_msg +=
+          " If this was unintended, check that links are not inside "
+          "code blocks or inline code.";
+    }
+    if (no_links_severity == ReportValidationSeverity::kError) {
+      if (!error_msg.empty()) error_msg += "\n";
+      error_msg += no_links_msg;
+    } else {
+      if (!warning.empty()) warning += "\n";
+      warning += no_links_msg;
+    }
+  }
+
+  return {error_msg, warning};
+}
+
 mcp::json DltMcpServer::set_report(const mcp::json& params,
                                    const std::string& /*session_id*/) {
   if (!dashboard_) {
@@ -861,27 +918,12 @@ mcp::json DltMcpServer::set_report(const mcp::json& params,
   std::string warning;
   if (!markdown.empty()) {
     const auto result = validateReport(markdown, dlt_file_->size() - 1);
-    if (result.hasErrors()) {
-      std::string error_msg;
-      if (!result.malformed_links.empty()) {
-        error_msg += "Malformed links: " + result.formatMalformedLinks();
-      }
-      if (!result.out_of_range_ids.empty()) {
-        if (!error_msg.empty()) error_msg += "\n";
-        error_msg += "Out of range IDs: " + result.formatOutOfRangeIds();
-      }
-      if (!result.links_in_code_blocks.empty()) {
-        if (!error_msg.empty()) error_msg += "\n";
-        error_msg += "Links in code blocks (not clickable): " +
-                     result.formatLinksInCodeBlocks();
-      }
+    auto [error_msg, validation_warning] = evaluateValidation(result);
+    if (!error_msg.empty()) {
       throw mcp::mcp_exception(mcp::error_code::invalid_params, error_msg);
     }
-    if (result.valid_links == 0) {
-      warning =
-          "No valid jump://msg/<id> links found in the report. "
-          "If this was unintended, check that links are not inside "
-          "code blocks or inline code.";
+    if (!validation_warning.empty()) {
+      warning = validation_warning;
     }
   }
   ReportStorage::Report reportToShow;

@@ -34,7 +34,7 @@ int validateReport_textCallback(MD_TEXTTYPE type, const MD_CHAR* text,
 
   auto* result = static_cast<ReportValidationResult*>(userdata);
 
-  std::string text_str(static_cast<const char*>(text), size);
+  std::string text_str(text, size);
   std::regex link_regex("jump://[a-zA-Z0-9/]+");
   auto begin =
       std::sregex_iterator(text_str.begin(), text_str.end(), link_regex);
@@ -105,11 +105,6 @@ ReportValidationResult validateReport(const std::string& report,
            &result);
 
   return result;
-}
-
-bool ReportValidationResult::hasErrors() const {
-  return !malformed_links.empty() || !out_of_range_ids.empty() ||
-         !links_in_code_blocks.empty();
 }
 
 std::string ReportValidationResult::formatMalformedLinks() const {

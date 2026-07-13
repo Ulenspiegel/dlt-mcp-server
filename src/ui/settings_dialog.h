@@ -15,6 +15,7 @@ class QLabel;
 class QLineEdit;
 class QPushButton;
 class QSettings;
+class QComboBox;
 class QSlider;
 class QSpinBox;
 
@@ -43,6 +44,8 @@ class SettingsDialog : public QDialog {
   QLabel* contextWarningLabel_;
   QSlider* filterSizeSlider_;
   QLabel* filterSizeDescLabel_;
+  QComboBox* linksInCodeBlocksCombo_;
+  QComboBox* noLinksCombo_;
 };
 
 #endif  // SETTINGS_DIALOG_H

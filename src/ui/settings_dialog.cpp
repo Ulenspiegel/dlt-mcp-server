@@ -9,6 +9,7 @@
 #include "ui/settings_dialog.h"
 
 #include <QBoxLayout>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFileDialog>
 #include <QFormLayout>
@@ -136,6 +137,21 @@ SettingsDialog::SettingsDialog(QSettings* settings, QWidget* parent)
   indexForm->setSpacing(12);
   indexGroup->setLayout(indexForm);
 
+  // Validation combo boxes
+  linksInCodeBlocksCombo_ = new QComboBox(this);
+  linksInCodeBlocksCombo_->addItems({"Ignore", "Warning", "Error"});
+
+  noLinksCombo_ = new QComboBox(this);
+  noLinksCombo_->addItems({"Ignore", "Warning", "Error"});
+
+  // Report validation group box
+  auto* validationGroup = new QGroupBox("Report Validation", this);
+  auto* validationForm = new QFormLayout();
+  validationForm->addRow("Links in code blocks:", linksInCodeBlocksCombo_);
+  validationForm->addRow("No clickable links:", noLinksCombo_);
+  validationForm->setSpacing(12);
+  validationGroup->setLayout(validationForm);
+
   // Button box
   auto* buttonBox = new QDialogButtonBox(
       QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -144,6 +160,7 @@ SettingsDialog::SettingsDialog(QSettings* settings, QWidget* parent)
   auto* mainLayout = new QVBoxLayout(this);
   mainLayout->addWidget(serverGroup);
   mainLayout->addWidget(indexGroup);
+  mainLayout->addWidget(validationGroup);
   mainLayout->addStretch();
   mainLayout->addWidget(buttonBox);
 
@@ -193,6 +210,19 @@ void SettingsDialog::loadSettings() {
   filterSizeSlider_->setValue(
       settings_->value(BloomFilterSizeKey, DefaultBloomFilterSize).toInt());
   updateFilterSizeDescription();
+  int codeBlocksVal = settings_
+                          ->value(LinksInCodeBlocksKey,
+                                  static_cast<int>(DefaultLinksInCodeBlocks))
+                          .toInt();
+  linksInCodeBlocksCombo_->setCurrentIndex(
+      (codeBlocksVal >= 0 && codeBlocksVal <= 2)
+          ? codeBlocksVal
+          : static_cast<int>(DefaultLinksInCodeBlocks));
+  int noLinksVal =
+      settings_->value(NoLinksKey, static_cast<int>(DefaultNoLinks)).toInt();
+  noLinksCombo_->setCurrentIndex((noLinksVal >= 0 && noLinksVal <= 2)
+                                     ? noLinksVal
+                                     : static_cast<int>(DefaultNoLinks));
 }
 
 void SettingsDialog::saveSettings() {
@@ -208,6 +238,19 @@ void SettingsDialog::saveSettings() {
     settings_->remove(BloomFilterSizeKey);
   } else {
     settings_->setValue(BloomFilterSizeKey, filterSize);
+  }
+  int linksInCodeBlocks = linksInCodeBlocksCombo_->currentIndex();
+  if (static_cast<ReportValidationSeverity>(linksInCodeBlocks) ==
+      DefaultLinksInCodeBlocks) {
+    settings_->remove(LinksInCodeBlocksKey);
+  } else {
+    settings_->setValue(LinksInCodeBlocksKey, linksInCodeBlocks);
+  }
+  int noLinks = noLinksCombo_->currentIndex();
+  if (static_cast<ReportValidationSeverity>(noLinks) == DefaultNoLinks) {
+    settings_->remove(NoLinksKey);
+  } else {
+    settings_->setValue(NoLinksKey, noLinks);
   }
 }
 

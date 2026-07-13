@@ -24,6 +24,8 @@
 #include "statistics.h"
 #include "ui/dashboard.h"
 
+struct ReportValidationResult;
+
 #ifndef DLT_VIEWER_PLUGIN_VERSION
 #define DLT_VIEWER_PLUGIN_VERSION "0.0.0"
 #endif
@@ -174,6 +176,8 @@ class DltMcpServer : public QObject,
 
   std::pair<std::vector<std::string>, std::vector<int>> buildReportIdentity()
       const;
+  std::pair<std::string, std::string> evaluateValidation(
+      const ReportValidationResult& result) const;
 };
 
 #endif  // DLT_MCP_SERVER_H_

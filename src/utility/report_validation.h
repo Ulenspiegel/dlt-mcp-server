@@ -19,7 +19,6 @@ struct ReportValidationResult {
   std::vector<std::string> links_in_code_blocks;
   int max_msg_idx = 0;
 
-  bool hasErrors() const;
   std::string formatMalformedLinks() const;
   std::string formatOutOfRangeIds() const;
   std::string formatLinksInCodeBlocks() const;
