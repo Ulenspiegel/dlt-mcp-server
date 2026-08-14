@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - NgramIndex constructor bug where filter_ was nullptr and index always reverted to full-text search.
 - Report from a previously loaded log file is now cleared when loading a new one.
+- Ensure message payloads are valid UTF-8 in tool responses.
 
 ### Requirements
 - Minimum Qt version raised to 5.14 (needed for `QTextBrowser::setMarkdown()`).

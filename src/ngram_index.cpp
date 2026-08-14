@@ -48,7 +48,7 @@ std::optional<Message> NgramIndex::get(int index) {
     return std::nullopt;
   }
 
-  const auto payload = message->toStringPayload().toStdString();
+  const auto payload = message->toStringPayload().toUtf8().toStdString();
 
   return Message{it->index,           it->timestamp,
                  it->ecu_time,        ctids_.at(it->ctid),
@@ -111,7 +111,7 @@ void NgramIndex::search(const Query& params,
                     apids_.at(apid),
                     ecuids_.at(ecuid),
                     level,
-                    dlt_message->toStringPayload().toStdString()};
+                    dlt_message->toStringPayload().toUtf8().toStdString()};
 
     if (!callback(message)) break;
   }

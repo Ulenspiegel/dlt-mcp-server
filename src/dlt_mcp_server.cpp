@@ -783,7 +783,7 @@ mcp::json DltMcpServer::get_messages(const mcp::json& params,
     int64_t ecu_time = getEcuTimeTicks(message);
 
     // Payload with cleanup.
-    std::string payload = message.toStringPayload().toStdString();
+    std::string payload = message.toStringPayload().toUtf8().toStdString();
 
     int64_t offset_ns = timestamp - base_ts;
     auto [hours, minutes, seconds, millis] = splitRelativeTime(offset_ns);
@@ -840,7 +840,7 @@ mcp::json DltMcpServer::get_selection(const mcp::json& /*params*/,
   auto [ecu_sec, ecu_mmm] = splitEcuTime(ecu_time);
 
   // Payload with cleanup, no truncation.
-  std::string payload = message.toStringPayload().toStdString();
+  std::string payload = message.toStringPayload().toUtf8().toStdString();
 
   std::ostringstream oss;
   oss << formatMessageLine(
