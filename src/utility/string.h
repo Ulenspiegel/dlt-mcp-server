@@ -28,10 +28,16 @@ inline std::string cleanPayload(const std::string& payload) {
 
 inline std::string payloadPreview(const std::string& payload,
                                   size_t maxLen = 100) {
-  if (payload.size() > maxLen) {
-    return payload.substr(0, maxLen) + "~";
+  if (payload.size() <= maxLen) {
+    return payload;
   }
-  return payload;
+  QString result =
+      QString::fromUtf8(payload.data(), static_cast<int>(payload.size()));
+  if (result.size() > static_cast<int>(maxLen)) {
+    result.truncate(static_cast<int>(maxLen));
+    return result.toUtf8().toStdString() + "~";
+  }
+  return result.toUtf8().toStdString();
 }
 
 inline bool isAscii(std::string_view text) {
