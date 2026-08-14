@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prevent the report browser from loading external links. (@HomoHabilis)
 - Create a dependabot config file. (@HomoHabilis)
 - Prevent agent from setting the report if no files are loaded.
+- Return unambiguous messages if `search` and `get_messages` tools result in an empty set.
 
 ### Fixed
 - NgramIndex constructor bug where filter_ was nullptr and index always reverted to full-text search.

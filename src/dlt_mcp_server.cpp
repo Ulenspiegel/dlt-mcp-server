@@ -547,7 +547,7 @@ mcp::json DltMcpServer::search(const mcp::json& params,
                              "DLT file is not loaded");
   }
   if (dlt_file_->size() == 0) {
-    return makeTextResult("");
+    return makeTextResult("DLT file is empty – no messages to search.");
   }
 
   // Extract tool parameters.
@@ -722,6 +722,14 @@ mcp::json DltMcpServer::search(const mcp::json& params,
         "substring matching is supported";
   }
 
+  if (!count_only && result.str().empty()) {
+    std::string empty_msg = "No messages matched the query.";
+    if (matches_skipped > 0 && matches_collected == 0) {
+      empty_msg = "Offset is beyond the result set. No messages returned.";
+    }
+    return makeTextResult(empty_msg, regex_warning);
+  }
+
   if (count_only) {
     return makeTextResult(std::to_string(matches_count), regex_warning);
   }
@@ -744,7 +752,7 @@ mcp::json DltMcpServer::get_messages(const mcp::json& params,
 
   auto ids = params["message_ids"];
   if (ids.empty()) {
-    return makeTextResult("");
+    return makeTextResult("No message IDs provided.");
   }
 
   // Enforce hard limit.
@@ -793,6 +801,10 @@ mcp::json DltMcpServer::get_messages(const mcp::json& params,
     if (count < ids.size()) {
       oss << "\n";
     }
+  }
+
+  if (count == 0) {
+    return makeTextResult("No messages found for the supplied IDs.");
   }
 
   return makeTextResult(oss.str());
